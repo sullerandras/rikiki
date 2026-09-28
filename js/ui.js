@@ -58,6 +58,7 @@
   let hint = null;
   let revealAnim = false;
   let modalCtx = null;
+  let trickKey = ''; // identifies the trick whose slots are on the table
 
   const sp = () => SPEEDS[settings.speed] || SPEEDS.normal;
   const alive = (g) => g === gen;
@@ -233,6 +234,7 @@
   function enterGame() {
     gen++;
     dealtRound = flippedRound = -1;
+    trickKey = '';
     thinking = -1;
     pendingBid = hint = null;
     $('#start').hidden = true;
@@ -347,21 +349,40 @@
     wrap.style.setProperty('--per-row', String(Math.ceil(k / rows)));
   }
 
+  /** One fixed slot per player, in playing order from the leader. Slots are
+   * built once per trick and cards drop into them, so nothing shifts around. */
   function renderTrick() {
     const r = state.round;
     const box = $('#trick');
-    box.innerHTML = '';
-    if (!r.trick.length) return;
-    const lead = R.winningPlay(r.trick, r.trump).p;
+    const N = state.players.length;
+    const active = state.phase === 'playing' || state.phase === 'trickDone';
+    const key = active ? `${state.roundIndex}:${r.tricks.length}:${r.leader}` : '';
+    if (key !== trickKey) {
+      trickKey = key;
+      box.innerHTML = '';
+      if (!active) return;
+      for (let k = 0; k < N; k++) {
+        const p = (r.leader + k) % N;
+        const slot = document.createElement('div');
+        slot.className = 'play empty';
+        slot.dataset.p = p;
+        slot.innerHTML = `<div class="slot"></div><span class="who">${esc(nameOf(p))}</span>`;
+        box.append(slot);
+      }
+    }
+    if (!active) return;
     for (const { p, card } of r.trick) {
-      const slot = document.createElement('div');
-      slot.className = 'play' + (p === lead ? ' leading' : '') + (p === lead && state.phase === 'trickDone' ? ' winner' : '');
-      slot.dataset.p = p;
-      const who = document.createElement('span');
-      who.className = 'who';
-      who.textContent = nameOf(p);
-      slot.append(cardEl(card, { trump: card.s === r.trump }), who);
-      box.append(slot);
+      const slot = $(`.play[data-p="${p}"]`, box);
+      if (!slot.classList.contains('empty')) continue;
+      slot.classList.remove('empty');
+      slot.querySelector('.slot').replaceWith(cardEl(card, { trump: card.s === r.trump }));
+    }
+    const lead = r.trick.length ? R.winningPlay(r.trick, r.trump).p : -1;
+    for (const slot of box.children) {
+      const p = Number(slot.dataset.p);
+      slot.classList.toggle('leading', p === lead);
+      slot.classList.toggle('winner', p === lead && state.phase === 'trickDone');
+      slot.classList.toggle('next', state.phase === 'playing' && p === r.turn);
     }
   }
 
@@ -595,7 +616,7 @@
         render();
         revealAnim = false;
         const sum = r.bids.reduce((a, b) => a + b, 0);
-        toast(sum > r.n ? `Guesses add up to ${sum} for ${plural(r.n, 'trick')}: someone will miss` : sum < r.n ? `Guesses add up to only ${sum} for ${plural(r.n, 'trick')}: someone gets extra` : `Guesses add up to exactly ${r.n}`);
+        toast(sum > r.n ? `${sum} guessed, ${r.n} to take: someone will miss` : sum < r.n ? `${sum} guessed, ${r.n} to take: someone gets extra` : `Guesses add up to exactly ${r.n}`);
         await sleep(sp().trick * 0.6);
       } else if (st.phase === 'playing') {
         const p = r.turn;
@@ -762,21 +783,44 @@
     });
   }
 
+  // House tradition: the winner gets a balloon, the last player a sunken ship.
+  const BALLOON =
+    '<svg class="balloon" viewBox="0 0 40 70" aria-hidden="true">' +
+    '<path d="M20 47c-3 4 3 7 0 11s3 6 0 11" fill="none" stroke="#e8dfc6" stroke-width="1.3" stroke-linecap="round"/>' +
+    '<path d="M20 2C9.5 2 3 10.5 3 20c0 11.5 9.5 21 15.5 24.5L17 48h6l-1.5-3.5C27.5 41 37 31.5 37 20 37 10.5 30.5 2 20 2z" fill="#d8342c"/>' +
+    '<ellipse cx="12.5" cy="14" rx="4" ry="7" fill="#fff" opacity=".35" transform="rotate(-22 12.5 14)"/></svg>';
+  const SHIPWRECK =
+    '<svg class="wreck" viewBox="0 0 64 52" aria-hidden="true"><g class="ship">' +
+    '<path d="M6 28h48l-7 11H14z" fill="#7a4a2a"/><path d="M6 28h48" stroke="#3b2414" stroke-width="2"/>' +
+    '<rect x="16" y="20" width="22" height="8" rx="1" fill="#efe8d6"/>' +
+    '<circle cx="21" cy="24" r="1.4" fill="#2c6e8f"/><circle cx="27" cy="24" r="1.4" fill="#2c6e8f"/><circle cx="33" cy="24" r="1.4" fill="#2c6e8f"/>' +
+    '<rect x="40" y="11" width="6" height="17" fill="#c0342c"/><rect x="40" y="11" width="6" height="4" fill="#1b1d22"/></g>' +
+    '<g class="bubbles" fill="none" stroke="#cdeaf6" stroke-width="1"><circle cx="22" cy="46" r="1.6"/><circle cx="30" cy="48" r="1.1"/><circle cx="37" cy="45" r="1.3"/></g>' +
+    '<path d="M0 36c4 0 4-3 8-3s4 3 8 3 4-3 8-3 4 3 8 3 4-3 8-3 4 3 8 3 4-3 8-3 4 3 8 3v16H0z" fill="#2c6e8f" opacity=".92"/></svg>';
+
   function showMatchEnd() {
     const order = G.standings(state);
     const rounds = state.history.length;
     const top = order.filter((e) => e.place === 1);
     const iWon = top.some((e) => e.i === HUMAN);
     const title = iWon ? (top.length > 1 ? 'You share the win!' : 'You win!') : top.length > 1 ? 'A shared win' : `${esc(top[0].name)} wins`;
+    const lastPlace = Math.max(...order.map((e) => e.place));
+    const bottom = lastPlace > 1 ? order.filter((e) => e.place === lastPlace) : [];
+    const names = (list) => list.map((e) => (e.i === HUMAN ? 'You' : esc(e.name))).join(' & ');
+    const prize = (e) => (e.place === 1 ? BALLOON : e.place === lastPlace && lastPlace > 1 ? SHIPWRECK : '');
+    const finale =
+      `<div class="finale"><figure>${BALLOON}<figcaption>A balloon for <b>${names(top)}</b></figcaption></figure>` +
+      (bottom.length ? `<figure>${SHIPWRECK}<figcaption>A sunken ship for <b>${names(bottom)}</b></figcaption></figure>` : '') +
+      '</div>';
     const items = order
       .map(
         (e) =>
           `<li class="${e.i === HUMAN ? 'is-me' : ''}"><span class="place">${e.place}</span>` +
-          `<span class="nm">${esc(e.name)}<small>${e.exact} of ${rounds} guesses exact</small></span><span class="sc">${fmtScore(e.score)}</span></li>`
+          `<span class="nm">${esc(e.name)}<small>${e.exact} of ${rounds} guesses exact</small></span><span class="prize">${prize(e)}</span><span class="sc">${fmtScore(e.score)}</span></li>`
       )
       .join('');
     const html =
-      `<h2 id="modal-title">${title}</h2><p class="sub">${plural(rounds, 'round')} played.</p><ol class="podium">${items}</ol>` +
+      `<h2 id="modal-title">${title}</h2><p class="sub">${plural(rounds, 'round')} played.</p>${finale}<ol class="podium">${items}</ol>` +
       `<div class="foot"><button type="button" class="btn" data-act="sheet">Scoresheet</button>` +
       `<button type="button" class="btn" data-act="setup">Change settings</button>` +
       `<button type="button" class="btn primary" data-act="again" data-autofocus>Play again</button></div>`;
@@ -793,7 +837,10 @@
     const N = state.players.length;
     const leadScore = Math.max(...state.players.map((p) => p.score));
     let head = '<th></th>';
-    for (let p = 0; p < N; p++) head += `<th title="${esc(state.players[p].name)}">${esc(state.players[p].name)}</th>`;
+    for (let p = 0; p < N; p++) {
+      const lead = state.history.length && state.players[p].score === leadScore;
+      head += `<th title="${esc(state.players[p].name)}"${lead ? ' class="lead"' : ''}>${esc(state.players[p].name)}</th>`;
+    }
     let body = '';
     state.schedule.forEach((n, i) => {
       const h = state.history[i];
@@ -804,21 +851,16 @@
       for (let p = 0; p < N; p++) {
         if (h) {
           const hit = h.bids[p] === h.won[p];
-          cells += `<td class="${hit ? 'hit' : 'miss'}"><span class="p">${fmtPts(h.points[p])}</span><small>${h.bids[p]} / ${h.won[p]}</small></td>`;
+          cells += `<td class="${hit ? 'hit' : 'miss'}" title="${fmtPts(h.points[p])} this round"><span class="p">${fmtScore(h.totals[p])}</span><small>${h.bids[p]} / ${h.won[p]}</small></td>`;
         } else if (current && state.phase !== 'bidding') {
           cells += `<td><small>guess ${state.round.bids[p]}</small></td>`;
         } else cells += '<td></td>';
       }
       body += `<tr class="${current ? 'current' : ''}"><th>${n} ${t}</th>${cells}</tr>`;
     });
-    let foot = '<th>Total</th>';
-    for (let p = 0; p < N; p++) {
-      const s = state.players[p].score;
-      foot += `<td class="${s === leadScore && state.history.length ? 'lead' : ''}">${fmtScore(s)}</td>`;
-    }
     const html =
-      `<h2 id="modal-title">Scoresheet</h2><p class="sub">Each row is a round: cards dealt and trump. Under the points: guess / took.</p>` +
-      `<div class="pad-wrap"><table class="pad"><thead><tr>${head}</tr></thead><tbody>${body}</tbody><tfoot><tr>${foot}</tr></tfoot></table></div>` +
+      `<h2 id="modal-title">Scoresheet</h2><p class="sub">Running totals after each round. Underneath: guess / took, green when exact.</p>` +
+      `<div class="pad-wrap"><table class="pad"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` +
       `<div class="foot"><button type="button" class="btn primary" data-act="close" data-autofocus>Close</button></div>`;
     const sheet = openModal(html, { back });
     sheet.querySelector('[data-act="close"]').addEventListener('click', () => closeModal());
