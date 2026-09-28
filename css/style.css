@@ -197,6 +197,9 @@ input[type='range'] { width: 100%; accent-color: var(--brass); min-height: 32px;
 .seg input:focus-visible + span { outline: 2px solid var(--brass-hi); outline-offset: 2px; }
 .check { display: flex; align-items: center; gap: 10px; color: var(--text-dim); font-weight: 600; cursor: pointer; }
 .check input { width: 20px; height: 20px; accent-color: var(--brass); }
+.race { margin: 14px 0 0; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.race b { color: var(--ivory); }
+.field .hint { margin: 0; font-size: 13px; color: var(--text-dim); line-height: 1.45; }
 .summary { margin: 0; color: var(--text-dim); font-size: 13px; text-align: center; font-variant-numeric: tabular-nums; }
 .summary b { color: var(--text); }
 .actions { display: flex; flex-direction: column; gap: 8px; }

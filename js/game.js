@@ -10,7 +10,9 @@
   const { winningPlay, isLegal, roundScore, buildSchedule, maxHandSize } = Riki.rules;
 
   /**
-   * opts: { players: [{name, isHuman, level}], decks, maxCards, shape }
+   * opts: { players: [{name, isHuman, level}], decks, maxCards, shape,
+   *         scoring: 'classic' | 'twenty',
+   *         target: 0 = play the round sequence once, N = first to N points (the sequence repeats) }
    */
   function createMatch(opts, rng) {
     rng = rng || Math.random;
@@ -19,7 +21,7 @@
     const maxCards = Math.min(opts.maxCards, maxHandSize(N, opts.decks));
     const state = {
       v: 1,
-      opts: { decks: opts.decks, maxCards, shape: opts.shape || 'pyramid' },
+      opts: { decks: opts.decks, maxCards, shape: opts.shape || 'pyramid', scoring: opts.scoring || 'classic', target: opts.target || 0 },
       players: opts.players.map((p) => ({ name: p.name, isHuman: !!p.isHuman, level: p.level || 'normal', score: 0 })),
       schedule: buildSchedule(maxCards, opts.shape || 'pyramid'),
       roundIndex: -1,
@@ -112,7 +114,7 @@
 
   function finishRound(state) {
     const r = state.round;
-    const points = r.bids.map((b, i) => roundScore(b, r.won[i]));
+    const points = r.bids.map((b, i) => roundScore(b, r.won[i], state.opts.scoring));
     points.forEach((pt, i) => (state.players[i].score += pt));
     state.history.push({
       n: r.n,
@@ -129,12 +131,25 @@
 
   function nextRound(state, rng) {
     if (state.phase !== 'roundEnd') throw new Error('Round not finished');
-    if (state.roundIndex + 1 >= state.schedule.length) state.phase = 'matchEnd';
-    else startRound(state, rng);
+    if (isLastRound(state)) {
+      state.phase = 'matchEnd';
+      return;
+    }
+    if (state.roundIndex + 1 >= state.schedule.length) extendSchedule(state);
+    startRound(state, rng);
   }
 
+  /** Target matches end once anyone has reached the target after a round. */
   function isLastRound(state) {
+    if (state.opts.target) return state.players.some((p) => p.score >= state.opts.target);
     return state.roundIndex + 1 >= state.schedule.length;
+  }
+
+  /** Repeat the round pattern, without doubling the hand size at the seam (…2, 1, 2, 3…). */
+  function extendSchedule(state) {
+    const pattern = buildSchedule(state.opts.maxCards, state.opts.shape);
+    const last = state.schedule[state.schedule.length - 1];
+    state.schedule.push(...(pattern[0] === last && pattern.length > 1 ? pattern.slice(1) : pattern));
   }
 
   /** Players sorted by score, with shared places for ties. */
@@ -154,6 +169,7 @@
       me: p,
       N,
       decks: state.opts.decks,
+      scoring: state.opts.scoring || 'classic',
       n: r.n,
       hand: r.hands[p].slice(),
       trump: r.trump,

@@ -90,3 +90,12 @@ test('schedule shapes', () => {
   assert.equal(rules.maxHandSize(3, 2), 34);
   assert.equal(rules.maxHandSize(4, 1), 12);
 });
+
+test('"20 per trick" scoring', () => {
+  const s = (b, w) => rules.roundScore(b, w, 'twenty');
+  assert.equal(s(2, 5), 34); // 2 * 20 - 2 * 3
+  assert.equal(s(5, 2), -6); // short: -2 per missing trick
+  assert.equal(s(3, 3), 60);
+  assert.equal(s(0, 0), 10);
+  assert.equal(s(0, 2), 6); // zero guess: 10 - 2 per trick
+});

@@ -97,3 +97,25 @@ test('inferred voids and caps are respected by sampled deals', () => {
     for (const x of deal[2]) assert.ok(!(x.s === 'H' && x.r > 10));
   }
 });
+
+test('first-to-target matches repeat the round pattern until someone gets there', () => {
+  const rng = cards.mulberry32(11);
+  const st = game.createMatch(
+    { players: ['a', 'b', 'c'].map((name) => ({ name, level: 'easy' })), decks: 1, maxCards: 3, shape: 'pyramid', scoring: 'twenty', target: 150 },
+    rng
+  );
+  while (st.phase !== 'matchEnd') {
+    for (let p = 0; p < 3; p++) game.setBid(st, p, ai.chooseBid(game.viewFor(st, p), 'easy', rng));
+    game.startPlay(st);
+    while (st.phase !== 'roundEnd') {
+      if (st.phase === 'trickDone') game.collectTrick(st);
+      else game.playCard(st, st.round.turn, ai.chooseCard(game.viewFor(st, st.round.turn), 'easy', rng).id);
+    }
+    const before = st.players.some((p) => p.score >= 150);
+    game.nextRound(st, rng);
+    assert.equal(st.phase === 'matchEnd', before);
+  }
+  assert.ok(st.history.length > 5, 'pattern repeated past its 5 rounds');
+  assert.deepEqual(st.schedule.slice(0, 9), [1, 2, 3, 2, 1, 2, 3, 2, 1]);
+  st.history.forEach((h) => h.points.forEach((pt, i) => assert.equal(pt, rules.roundScore(h.bids[i], h.won[i], 'twenty'))));
+});

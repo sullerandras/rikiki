@@ -50,8 +50,16 @@
     return `You must beat the ${cardName(best)} with a higher trump.`;
   }
 
-  /** Exact: 10 + 2 per trick. Missed: -2 per trick of difference. */
-  function roundScore(bid, won) {
+  /**
+   * classic: exact = 10 + 2 per trick; missed = -2 per trick of difference.
+   * twenty:  made it = 20 per guessed trick, -2 per extra trick; short = -2 per
+   *          missing trick. A zero guess is worth 10, -2 per trick taken.
+   */
+  function roundScore(bid, won, scoring) {
+    if (scoring === 'twenty') {
+      if (bid === 0) return 10 - 2 * won;
+      return won >= bid ? 20 * bid - 2 * (won - bid) : -2 * (bid - won);
+    }
     return bid === won ? 10 + 2 * won : -2 * Math.abs(bid - won);
   }
 

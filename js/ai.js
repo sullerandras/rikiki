@@ -168,7 +168,7 @@
       });
       simPlay(sim, p, card);
     }
-    return roundScore(sim.bids[me], sim.won[me]);
+    return roundScore(sim.bids[me], sim.won[me], sim.scoring);
   }
 
   function makeSim(view, deal, seen, bids, turn) {
@@ -176,6 +176,7 @@
       N: view.N,
       trump: view.trump,
       decks: view.decks,
+      scoring: view.scoring,
       hands: deal.map((h) => h.slice()),
       bids,
       won: view.won.slice(),

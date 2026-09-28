@@ -43,7 +43,7 @@
   };
 
   const settings = Object.assign(
-    { name: '', opponents: 3, level: 'normal', decks: 2, maxCards: 10, shape: 'pyramid', speed: 'normal', hints: true },
+    { name: '', opponents: 3, level: 'normal', decks: 2, maxCards: 10, shape: 'pyramid', scoring: 'classic', target: 0, speed: 'normal', hints: true },
     store.get(KEY_SETTINGS) || {}
   );
 
@@ -66,6 +66,13 @@
   const nameOf = (p) => (p === HUMAN ? 'You' : state.players[p].name);
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
   const fmtScore = (n) => (n < 0 ? '−' + -n : String(n));
+  const SCORING_HINT = {
+    classic: 'Exact guess: 10 + 2 per trick. Otherwise −2 per trick you are off.',
+    twenty: 'Guess made: 20 per guessed trick, −2 per extra trick. Short: −2 per missing trick. A zero guess: 10, −2 per trick taken.',
+  };
+  /** "Round 5 of 19", or "Round 5 · to 1000" in first-to-target matches. */
+  const roundLabel = (st) =>
+    st.opts.target ? `Round ${st.roundIndex + 1} · to ${st.opts.target}` : `Round ${st.roundIndex + 1} of ${st.schedule.length}`;
   const fmtPts = (n) => (n > 0 ? '+' + n : n < 0 ? '−' + -n : '0');
   const saveSettings = () => store.set(KEY_SETTINGS, settings);
   const save = () => state && state.phase !== 'matchEnd' && store.set(KEY_MATCH, state);
@@ -147,6 +154,14 @@
       settings.decks = v;
       refreshSetup();
     });
+    seg($('#f-scoring'), 'scoring', [['classic', 'Classic'], ['twenty', '20 per trick']], settings.scoring, (v) => {
+      settings.scoring = v;
+      refreshSetup();
+    });
+    seg($('#f-target'), 'target', [[0, 'Once through'], [500, 'First to 500'], [1000, 'First to 1000']], settings.target, (v) => {
+      settings.target = v;
+      refreshSetup();
+    });
     seg($('#f-speed'), 'speed', [['relaxed', 'Relaxed'], ['normal', 'Normal'], ['quick', 'Quick']], settings.speed, (v) => {
       settings.speed = v;
       refreshSetup();
@@ -184,8 +199,13 @@
     const schedule = R.buildSchedule(m, settings.shape);
     const cardsPlayed = schedule.reduce((a, b) => a + b, 0) * players;
     const minutes = Math.max(1, Math.round((cardsPlayed * sp().perCard + schedule.length * 15) / 60));
+    $('#scoring-hint').textContent = SCORING_HINT[settings.scoring] || SCORING_HINT.classic;
+    const length = settings.target
+      ? `Until someone reaches <b>${settings.target} points</b>, repeating ${plural(schedule.length, 'round')}`
+      : `<b>${plural(schedule.length, 'round')}</b>`;
     $('#setup-summary').innerHTML =
-      `<b>${plural(schedule.length, 'round')}</b> · ${players} players · ${plural(settings.decks, 'deck')} (${settings.decks * 52} cards) · about <b>${minutes} min</b>`;
+      `${length} · ${players} players · ${plural(settings.decks, 'deck')} (${settings.decks * 52} cards)` +
+      (settings.target ? '' : ` · about <b>${minutes} min</b>`);
     saveSettings();
   }
 
@@ -200,7 +220,7 @@
       const me = saved.players[HUMAN];
       const lead = G.standings(saved)[0];
       $('#resume-info').textContent =
-        `Round ${saved.roundIndex + 1} of ${saved.schedule.length} · ${saved.players.length} players · ` +
+        `${roundLabel(saved)} · ${saved.players.length} players · ` +
         (lead.i === HUMAN ? `you lead with ${me.score}` : `you have ${me.score}, ${lead.name} leads with ${lead.score}`);
     }
   }
@@ -219,7 +239,14 @@
     const players = [{ name: settings.name || 'You', isHuman: true }].concat(
       names.map((name, i) => ({ name, level: settings.level === 'mixed' ? cycle[i % 3] : settings.level }))
     );
-    state = G.createMatch({ players, decks: settings.decks, maxCards: settings.maxCards, shape: settings.shape });
+    state = G.createMatch({
+      players,
+      decks: settings.decks,
+      maxCards: settings.maxCards,
+      shape: settings.shape,
+      scoring: settings.scoring,
+      target: settings.target,
+    });
     save();
     enterGame();
   }
@@ -261,7 +288,7 @@
 
   function renderTop() {
     const r = state.round;
-    $('#ri-round').textContent = `Round ${state.roundIndex + 1} of ${state.schedule.length}`;
+    $('#ri-round').textContent = roundLabel(state);
     let sub = `${plural(r.n, 'card')} · ${state.dealer === HUMAN ? 'you deal' : state.players[state.dealer].name + ' deals'}`;
     if (state.phase !== 'bidding') {
       const sum = r.bids.reduce((a, b) => a + b, 0);
@@ -769,8 +796,9 @@
     const nextDealer = (state.dealer + 1) % N;
     const html =
       `<h2 id="modal-title">${title} <span style="color:${myPts >= 0 ? 'var(--good)' : 'var(--bad)'}">${fmtPts(myPts)}</span></h2>` +
-      `<p class="sub">Round ${state.roundIndex + 1} of ${state.schedule.length} · ${plural(h.n, 'card')} · trump ${C.SUIT_SYMBOL[h.trump]} ${C.SUIT_NAME[h.trump]}</p>` +
+      `<p class="sub">${roundLabel(state)} · ${plural(h.n, 'card')} · trump ${C.SUIT_SYMBOL[h.trump]} ${C.SUIT_NAME[h.trump]}</p>` +
       `<table class="results"><thead><tr><th>Player</th><th>Guess</th><th>Took</th><th>Points</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>` +
+      targetLine() +
       `<div class="foot"><button type="button" class="btn" data-act="sheet">Scoresheet</button>` +
       `<button type="button" class="btn primary" data-act="next" data-autofocus>${last ? 'Final results' : `Next: ${plural(nextN, 'card')}, ${nextDealer === HUMAN ? 'you deal' : esc(state.players[nextDealer].name) + ' deals'}`}</button></div>`;
     const sheet = openModal(html, { locked: true });
@@ -798,6 +826,16 @@
     '<g class="bubbles" fill="none" stroke="#cdeaf6" stroke-width="1"><circle cx="22" cy="46" r="1.6"/><circle cx="30" cy="48" r="1.1"/><circle cx="37" cy="45" r="1.3"/></g>' +
     '<path d="M0 36c4 0 4-3 8-3s4 3 8 3 4-3 8-3 4 3 8 3 4-3 8-3 4 3 8 3 4-3 8-3 4 3 8 3v16H0z" fill="#2c6e8f" opacity=".92"/></svg>';
 
+  /** Race status for first-to-target matches. */
+  function targetLine() {
+    const T = state.opts.target;
+    if (!T) return '';
+    const lead = G.standings(state)[0];
+    const who = lead.i === HUMAN ? 'You lead' : `${esc(lead.name)} leads`;
+    const togo = T - lead.score;
+    return `<p class="race">First to ${T}: ${who} with <b>${fmtScore(lead.score)}</b>${togo > 0 ? `, ${togo} to go` : ' and has made it'}.</p>`;
+  }
+
   function showMatchEnd() {
     const order = G.standings(state);
     const rounds = state.history.length;
@@ -820,7 +858,7 @@
       )
       .join('');
     const html =
-      `<h2 id="modal-title">${title}</h2><p class="sub">${plural(rounds, 'round')} played.</p>${finale}<ol class="podium">${items}</ol>` +
+      `<h2 id="modal-title">${title}</h2><p class="sub">${plural(rounds, 'round')} played${state.opts.target ? ` · first to ${state.opts.target}` : ''}.</p>${finale}<ol class="podium">${items}</ol>` +
       `<div class="foot"><button type="button" class="btn" data-act="sheet">Scoresheet</button>` +
       `<button type="button" class="btn" data-act="setup">Change settings</button>` +
       `<button type="button" class="btn primary" data-act="again" data-autofocus>Play again</button></div>`;
@@ -842,7 +880,8 @@
       head += `<th title="${esc(state.players[p].name)}"${lead ? ' class="lead"' : ''}>${esc(state.players[p].name)}</th>`;
     }
     let body = '';
-    state.schedule.forEach((n, i) => {
+    const rows = state.opts.target ? state.schedule.slice(0, state.roundIndex + 1) : state.schedule;
+    rows.forEach((n, i) => {
       const h = state.history[i];
       const current = i === state.roundIndex && !h;
       const trump = h ? h.trump : current ? state.round.trump : null;
@@ -937,12 +976,18 @@
 <li>No led suit and no trumps: play anything. A good chance to throw away a dangerous card.</li>
 </ul>
 <p>Cards rank 2 (low) up to A (high). A trump beats every other suit. With two decks there are identical cards: the one played first wins.</p>
-<h3>Scoring</h3>
+<h3>Classic scoring</h3>
 <ul>
 <li>Exactly right: <b>10 points + 2 per trick</b>. A correct guess of zero is worth 10.</li>
 <li>Wrong: <b>−2 points for every trick</b> you were off, in either direction.</li>
 </ul>
 <p class="ex">Guess 3, take 3: <b>+16</b> · Guess 3, take 1: <em>−4</em> · Guess 3, take 5: <em>−4</em> · Guess 0, take 0: <b>+10</b></p>
+<h3>Variants</h3>
+<ul>
+<li><b>20 per trick</b> scoring: if you take at least your guess, you get 20 per guessed trick, minus 2 for each extra trick. If you fall short, it is −2 per missing trick. A zero guess is worth 10, minus 2 per trick taken.</li>
+<li><b>First to 500 / 1000</b>: the round order repeats until someone reaches the target. The match ends after that round, and the highest score wins. This pairs well with 20 per trick.</li>
+</ul>
+<p class="ex">20 per trick. Guess 2, take 5: <b>+34</b> · Guess 5, take 2: <em>−6</em> · Guess 3, take 3: <b>+60</b> · Guess 0, take 2: <b>+6</b></p>
 <h3>Reading the table</h3>
 <ul>
 <li>Every player shows their guess and the tricks taken so far. The numbers turn green while exact and red once over.</li>

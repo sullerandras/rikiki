@@ -21,7 +21,14 @@ The match is saved in the browser after every card, so you can close the tab and
 - Followers must follow suit and **beat the winning card if they can**. With no card of the led suit
   they must trump, and over-trump if they can. With neither, anything goes.
 - With identical cards from two decks, the one played first wins.
-- Score: exact guess = 10 + 2 × tricks; a miss = −2 × difference.
+- Score (classic): exact guess = 10 + 2 × tricks; a miss = −2 × difference.
+
+### Variants (setup screen)
+
+- **20 per trick scoring:** if you take at least your guess, 20 × guess − 2 × extra tricks. If you fall short,
+  −2 × missing tricks. A zero guess is 10 − 2 × tricks taken. Guess 2, take 5 = 34; guess 5, take 2 = −6.
+- **First to 500 / 1000:** the round order repeats until someone reaches the target. The match ends after
+  that round, and the highest score wins.
 
 ## Bots
 
@@ -46,7 +53,7 @@ js/ui.js          rendering, animation, game loop
 test/             node --test suites (rules, engine, inference)
 tools/build.mjs   bundles everything into dist/rikiki.html
 tools/serve.mjs   tiny static server for LAN play
-tools/simulate.cjs bot tournament, e.g. `npm run simulate -- 40 normal,hard,normal,hard 8`
+tools/simulate.cjs bot tournament, e.g. `npm run simulate -- 40 normal,hard,normal,hard 8 twenty`
 ```
 
 The scripts are plain (non-module) files so the page works from `file://`. They attach to `globalThis.Riki`, which lets the Node tests `require()` them directly.
