@@ -9,7 +9,7 @@
   const HUMAN = 0;
   const KEY_MATCH = 'rikiki.match.v1';
   const KEY_SETTINGS = 'rikiki.settings.v1';
-  const BOT_NAMES = ['Anna', 'Bence', 'Csilla', 'Dani', 'Eszter', 'Feri', 'Gabi', 'Hanna', 'Imre', 'Juli', 'Laci', 'Marci', 'Nóri', 'Peti', 'Réka', 'Zoli'];
+  const BOT_NAMES = ['Alice', 'Ben', 'Chloe', 'Daniel', 'Emma', 'Finn', 'Grace', 'Henry', 'Isla', 'Jack', 'Lucy', 'Max', 'Nora', 'Oliver', 'Ruby', 'Sam'];
   const HUES = [42, 205, 335, 115, 270, 18, 172, 300];
   const SPEEDS = {
     relaxed: { bot: 1100, trick: 1700, fly: 380, count: 650, perCard: 1.7 },
