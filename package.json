@@ -1,0 +1,11 @@
+{
+  "name": "rikiki",
+  "private": true,
+  "description": "Rikiki (Riki tiki) trick-guessing card game against computer opponents. No dependencies.",
+  "scripts": {
+    "test": "node --test test/",
+    "build": "node tools/build.mjs",
+    "simulate": "node tools/simulate.cjs",
+    "serve": "node tools/serve.mjs"
+  }
+}

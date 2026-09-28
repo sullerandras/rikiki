@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rikiki</title>
+<meta name="description" content="Rikiki (Riki tiki): the card game where you guess exactly how many tricks you'll take. Play against computer opponents.">
+<meta name="theme-color" content="#0b2f24">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@600;700;800&family=Bodoni+Moda:ital,opsz,wght@0,6..96,800;1,6..96,500&family=Caveat:wght@500;700&family=Manrope:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ============================================================ start -->
+  <section id="start" class="screen start">
+    <div class="start-inner">
+      <header class="brand">
+        <div class="brand-fan" aria-hidden="true" id="brand-fan"></div>
+        <h1>Rikiki</h1>
+        <p class="aka">also called Riki tiki</p>
+        <p class="tagline">Say how many tricks you'll take. Then take exactly that many.</p>
+      </header>
+
+      <div id="resume-box" class="resume" hidden>
+        <div class="resume-text">
+          <strong>Match in progress</strong>
+          <span id="resume-info"></span>
+        </div>
+        <button type="button" id="btn-resume" class="btn primary">Continue</button>
+      </div>
+
+      <form id="setup" class="setup" autocomplete="off">
+        <div class="field">
+          <label for="f-name">Your name</label>
+          <input id="f-name" name="name" maxlength="14" placeholder="You">
+        </div>
+        <fieldset class="field">
+          <legend>Opponents</legend>
+          <div class="seg" id="f-opp"></div>
+        </fieldset>
+        <fieldset class="field">
+          <legend>Opponent skill</legend>
+          <div class="seg" id="f-level"></div>
+        </fieldset>
+        <fieldset class="field">
+          <legend>Decks of French cards</legend>
+          <div class="seg" id="f-decks"></div>
+        </fieldset>
+        <div class="field">
+          <label for="f-max">Most cards in a hand <output id="o-max" for="f-max"></output></label>
+          <input type="range" id="f-max" min="1" max="34" step="1">
+        </div>
+        <fieldset class="field">
+          <legend>Round order</legend>
+          <div class="seg" id="f-shape"></div>
+        </fieldset>
+        <fieldset class="field">
+          <legend>Pace</legend>
+          <div class="seg" id="f-speed"></div>
+        </fieldset>
+        <label class="check" for="f-hints">
+          <input type="checkbox" id="f-hints">
+          <span>Show a hint button</span>
+        </label>
+        <p class="summary" id="setup-summary"></p>
+        <div class="actions">
+          <button type="submit" class="btn primary big">Deal the cards</button>
+          <button type="button" class="btn ghost" data-open="rules">How to play</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============================================================ game -->
+  <section id="game" class="screen game" hidden>
+    <header class="topbar">
+      <button type="button" class="icon-btn" id="btn-menu" aria-label="Menu">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <div class="round-info">
+        <span id="ri-round" class="ri-main"></span>
+        <span id="ri-sub" class="ri-sub"></span>
+      </div>
+      <div class="trump-box" id="trump-box" aria-live="polite">
+        <span class="lbl">Trump</span>
+        <div id="trump-card"></div>
+      </div>
+      <button type="button" class="icon-btn" id="btn-scores" aria-label="Scoresheet">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg>
+      </button>
+    </header>
+
+    <div id="seats" class="seats"></div>
+
+    <main class="felt" id="felt">
+      <div id="trick" class="trick" aria-live="polite"></div>
+      <div id="felt-msg" class="felt-msg"></div>
+      <div id="countdown" class="countdown" aria-hidden="true"></div>
+      <button type="button" id="btn-last" class="chip-btn last-btn" hidden>Last trick</button>
+    </main>
+
+    <div class="me" id="me">
+      <div class="me-bar" id="me-bar"></div>
+      <div id="bidbar" class="bidbar" hidden>
+        <p class="bid-q">How many tricks will you take?</p>
+        <div class="bid-grid" id="bid-grid"></div>
+        <div class="bid-actions">
+          <button type="button" id="btn-bid-hint" class="chip-btn" hidden>Hint</button>
+          <button type="button" id="btn-bid" class="btn primary" disabled>Pick a number</button>
+        </div>
+      </div>
+      <div id="hand" class="hand" aria-label="Your hand"></div>
+    </div>
+  </section>
+</div>
+
+<div id="modal" class="modal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="modal-title" id="sheet"></div>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="js/cards.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
