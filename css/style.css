@@ -224,9 +224,12 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
   display: flex; align-items: center; gap: 10px;
   padding: max(8px, env(safe-area-inset-top)) var(--gutter) 8px;
 }
-.round-info { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.15; }
-.ri-main { font: 700 17px var(--f-display); color: var(--ivory); white-space: nowrap; }
-.ri-sub { font-size: 12.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.round-info { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.1; }
+.ri-main { font: 700 17px/1.1 var(--f-display); color: var(--ivory); white-space: nowrap; }
+.ri-sub { /* may wrap to a second line on narrow screens; the trump chip is taller anyway */
+  font-size: 12.5px; color: var(--text-dim); font-variant-numeric: tabular-nums;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
 .ri-sub b { color: var(--text); }
 .ri-sub .over { color: var(--bad); }
 .ri-sub .under { color: var(--good); }
@@ -309,12 +312,16 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
     var(--felt-2);
   box-shadow: 0 0 0 1px var(--felt-line) inset, 0 0 0 6px rgba(0, 0, 0, 0.18), 0 10px 30px rgba(0, 0, 0, 0.35) inset;
   display: grid; place-items: center; overflow: hidden;
+  padding-bottom: 36px; /* room for the felt message and the last-trick button */
 }
+.felt { grid-template-columns: minmax(0, 1fr); }
+.felt > .trick, .felt > .bidbar { grid-area: 1 / 1; } /* stacked: the table is sized for whichever is bigger */
 .felt::before { /* printed table mark */
   content: 'RIKIKI'; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   font: 400 clamp(34px, 10vw, 72px) var(--f-logo); letter-spacing: 0.3em; padding-left: 0.3em;
   color: rgba(214, 174, 85, 0.05); pointer-events: none; white-space: nowrap;
 }
+.trick.idle { visibility: hidden; }
 .trick {
   position: relative; z-index: 1;
   display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 8px 6px;
@@ -322,7 +329,7 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
 }
 .play { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .play.led::before { /* who led this trick, since the order no longer shows it */
-  content: 'Lead'; position: absolute; top: -7px; left: 50%; transform: translateX(-50%); z-index: 1;
+  content: 'Lead'; position: absolute; top: -7px; right: -4px; z-index: 1; /* top-right corner has no index */
   padding: 1px 6px; border-radius: 999px;
   background: var(--brass); color: var(--felt-2);
   font: 800 9.5px var(--f-ui); letter-spacing: 0.06em; text-transform: uppercase;
@@ -345,14 +352,17 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
 .play.leading .who { color: var(--brass-hi); }
 .play.winner .card { transform: translateY(-6px); transition: transform 0.25s; }
 .felt-msg {
-  position: absolute; left: 12px; right: 12px; bottom: 10px; z-index: 2;
+  position: absolute; left: 44px; right: 44px; bottom: 9px; z-index: 2;
   text-align: center; font-weight: 700; font-size: 14px; color: var(--brass-hi);
-  pointer-events: none; min-height: 20px; text-wrap: balance;
+  pointer-events: none; min-height: 20px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .felt-msg.big { font: 700 22px var(--f-display); color: var(--ivory); bottom: auto; top: 50%; transform: translateY(-50%); }
-.last-btn { position: absolute; top: 10px; right: 10px; z-index: 3; }
-.countdown {
-  position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; pointer-events: none;
+.last-btn { position: absolute; right: 8px; bottom: 4px; z-index: 3; width: 30px; height: 30px; border-radius: 50%; background: rgba(0, 0, 0, 0.25); }
+.last-btn svg { width: 17px; height: 17px; }
+.countdown { /* fixed on the table's centre (set from JS), so a small table never clips it */
+  position: fixed; left: 0; right: 0; top: var(--cy, 50%); height: 0; z-index: 4;
+  display: grid; place-items: center; pointer-events: none;
   font: 800 clamp(80px, 26vw, 150px)/1 var(--f-display); color: var(--ivory);
   text-shadow: 0 4px 0 rgba(0, 0, 0, 0.3), 0 0 40px rgba(214, 174, 85, 0.45);
 }
@@ -372,17 +382,19 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
 .me-bar.turn { border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass), 0 0 18px rgba(214, 174, 85, 0.3); }
 .me-bar .avatar { grid-row: auto; flex: none; }
 .me-bar .who { display: flex; flex-direction: column; min-width: 0; gap: 3px; flex: 0 1 auto; }
-.me-bar .status { flex: 1; min-width: 0; text-align: right; font-size: 13px; font-weight: 700; color: var(--text-dim); text-wrap: balance; }
+.me-bar .status { flex: 1; min-width: 0; text-align: right; font-size: 13px; font-weight: 700; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .me-bar .status.your-turn { color: var(--brass-hi); }
 .me-bar .score { flex: none; min-width: 34px; }
 
 .bidbar {
+  position: relative; z-index: 3; width: calc(100% - 20px); max-width: 520px; margin: 10px;
   padding: 12px; border-radius: 16px;
   background: rgba(2, 18, 12, 0.6); border: 1px solid var(--brass-lo);
   display: flex; flex-direction: column; gap: 10px;
   animation: rise 0.3s ease-out;
 }
 @keyframes rise { from { transform: translateY(12px); opacity: 0; } }
+.felt > .bidbar[hidden] { display: flex !important; visibility: hidden; animation: none; } /* keeps its space */
 .bid-q { margin: 0; text-align: center; font: 700 17px var(--f-display); color: var(--ivory); }
 .bid-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
 .bid-grid button {

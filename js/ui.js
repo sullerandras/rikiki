@@ -387,14 +387,15 @@
     const box = $('#trick');
     const N = state.players.length;
     const active = state.phase === 'playing' || state.phase === 'trickDone';
-    const key = active ? `${state.roundIndex}:${r.tricks.length}:${r.leader}` : '';
+    // between tricks the slots stay (invisibly) so the table keeps its size
+    const key = active ? `${state.roundIndex}:${r.tricks.length}:${r.leader}` : `idle:${N}`;
+    box.classList.toggle('idle', !active);
     if (key !== trickKey) {
       trickKey = key;
       box.innerHTML = '';
-      if (!active) return;
       for (const p of tableOrder(N)) {
         const slot = document.createElement('div');
-        slot.className = 'play empty' + (p === r.leader ? ' led' : '');
+        slot.className = 'play empty' + (active && p === r.leader ? ' led' : '');
         slot.dataset.p = p;
         slot.innerHTML = `<div class="slot"></div><span class="who">${esc(nameOf(p))}</span>`;
         box.append(slot);
@@ -439,15 +440,16 @@
     const bar = $('#me-bar');
     const myTurn = state.phase === 'playing' && r.turn === HUMAN;
     bar.classList.toggle('turn', myTurn);
+    const showHint = settings.hints && myTurn;
     let status = '';
     let cls = '';
     if (state.phase === 'bidding') status = pendingBid === null ? 'Your guess?' : `You picked ${pendingBid}`;
     else if (myTurn) {
-      status = requirement();
+      // what to play is spelled out on the felt; the Hint button needs the room on phones
+      status = showHint ? '' : 'Your turn';
       cls = 'your-turn';
     } else if (state.phase === 'playing') status = `${nameOf(r.turn)} to play`;
     else if (state.phase === 'trickDone') status = r.trickWinner === HUMAN ? 'You take it' : `${nameOf(r.trickWinner)} takes it`;
-    const showHint = settings.hints && myTurn;
     bar.innerHTML =
       `${avatarHTML(HUMAN)}<span class="who"><span class="nm">${esc(me.name)}</span>${tallyHTML(HUMAN)}</span>` +
       `<span class="status ${cls}">${esc(status)}</span>` +
@@ -546,8 +548,8 @@
     if (text === undefined) {
       const r = state.round;
       text = '';
-      if (state.phase === 'bidding') text = r.bids[HUMAN] === null ? 'Look at your cards and guess your tricks' : '';
-      else if (state.phase === 'playing' && !r.trick.length) text = r.turn === HUMAN ? 'Your lead' : `${nameOf(r.turn)} leads`;
+      if (state.phase === 'playing' && r.turn === HUMAN) text = requirement();
+      else if (state.phase === 'playing' && !r.trick.length) text = `${nameOf(r.turn)} leads`;
     }
     el.textContent = text;
     el.classList.toggle('big', !!big);
@@ -603,6 +605,8 @@
   async function countdown(g) {
     const el = $('#countdown');
     const ms = sp().count;
+    const felt = $('#felt').getBoundingClientRect();
+    el.style.setProperty('--cy', `${felt.top + felt.height / 2}px`);
     for (const t of ['1', '2', '3!']) {
       el.innerHTML = `<span style="--count-ms:${ms}ms">${t}</span>`;
       await sleep(ms);
