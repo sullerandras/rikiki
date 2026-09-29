@@ -462,7 +462,6 @@
     handEl.classList.toggle('active', myTurn);
     const deal = dealtRound !== state.roundIndex && !reduceMotion;
     dealtRound = state.roundIndex;
-    handEl.innerHTML = '';
     const els = hand.map((c, i) => {
       const el = cardEl(c, { button: true, trump: c.s === r.trump });
       if (myTurn) el.classList.add(legal.has(c.id) ? 'legal' : 'dim');
@@ -474,25 +473,23 @@
       el.addEventListener('click', () => onCardTap(c.id, el));
       return el;
     });
-    const row = document.createElement('div');
-    row.className = 'hand-row';
-    row.append(...els);
-    handEl.append(row);
-    layoutHand();
+    layoutHand(els);
   }
 
-  /** Overlap cards to fit the width; split into two rows when too tight to read. */
-  function layoutHand() {
+  /** Overlap cards to fit the width; wrap into more rows when slivers would get too thin to tap. */
+  function layoutHand(els = $$('#hand .card')) {
     const handEl = $('#hand');
-    const els = $$('.card', handEl);
-    if (!els.length) return;
+    if (!els.length) return handEl.replaceChildren();
+    // Swap in the finished rows in one go: a half-built hand can briefly change the page height and lose its scroll position.
     const W = handEl.clientWidth;
-    const cw = els[0].offsetWidth;
+    if (!$('.card', handEl)) handEl.append(els[0]);
+    const cw = $('.card', handEl).offsetWidth;
     const k = els.length;
-    const minStep = Math.max(24, cw * 0.4);
-    const rows = k > 1 && (W - cw) / (k - 1) < minStep ? 2 : 1;
-    handEl.innerHTML = '';
+    const minStep = Math.max(28, cw * 0.45);
+    const fit = Math.max(1, Math.floor((W - cw) / minStep) + 1);
+    const rows = Math.ceil(k / fit);
     const perRow = Math.ceil(k / rows);
+    const built = [];
     for (let i = 0; i < rows; i++) {
       const rowEls = els.slice(i * perRow, (i + 1) * perRow);
       const row = document.createElement('div');
@@ -500,8 +497,11 @@
       const step = rowEls.length > 1 ? Math.min(cw + 5, (W - cw) / (rowEls.length - 1)) : 0;
       rowEls.forEach((el, j) => (el.style.marginLeft = j ? `${step - cw}px` : '0'));
       row.append(...rowEls);
-      handEl.append(row);
+      built.push(row);
     }
+    handEl.replaceChildren(...built);
+    const hinted = $('.card.hinted', handEl);
+    if (hinted) hinted.scrollIntoView({ block: 'nearest' });
   }
 
   function renderBidbar() {
@@ -511,7 +511,11 @@
     bar.hidden = !show;
     if (!show) return;
     const grid = $('#bid-grid');
+    const scroll = grid.scrollLeft;
     grid.innerHTML = '';
+    // more than two rows of numbers would squeeze the hand: use one swipeable strip instead
+    const perRow = Math.max(1, Math.floor((bar.clientWidth - 24 + 6) / 50));
+    grid.classList.toggle('strip', r.n + 1 > perRow * 2);
     for (let b = 0; b <= r.n; b++) {
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -521,6 +525,12 @@
       if (hint && hint.kind === 'bid' && hint.value === b) btn.classList.add('hinted');
       btn.addEventListener('click', () => pickBid(b));
       grid.append(btn);
+    }
+    grid.scrollLeft = scroll;
+    const focus = $('.hinted', grid) || $('[aria-pressed="true"]', grid);
+    if (focus && grid.classList.contains('strip')) {
+      const l = focus.offsetLeft - grid.offsetLeft;
+      if (l < grid.scrollLeft || l + focus.offsetWidth > grid.scrollLeft + grid.clientWidth) grid.scrollLeft = l - (grid.clientWidth - focus.offsetWidth) / 2;
     }
     const go = $('#btn-bid');
     go.disabled = pendingBid === null;
