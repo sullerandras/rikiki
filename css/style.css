@@ -122,8 +122,8 @@ button { cursor: pointer; }
   padding-top: calc(var(--w) * 0.06);
 }
 .card .face.court {
-  font-family: var(--f-display); font-weight: 800; font-size: calc(var(--w) * 0.52);
-  inset: 22% 20%;
+  font-size: calc(var(--w) * 0.46);
+  inset: 22% 20%; padding-top: 0;
   border: 1px solid currentColor; border-radius: 4px;
   background: repeating-linear-gradient(135deg, transparent 0 5px, rgba(214, 174, 85, 0.13) 5px 6px);
 }

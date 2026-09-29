@@ -100,7 +100,7 @@
     const sym = C.SUIT_SYMBOL[c.s];
     el.className = 'card ' + (C.isRed(c.s) ? 'red' : 'black') + (opts.trump ? ' trump' : '');
     let face;
-    if (c.r >= 11 && c.r <= 13) face = `<span class="face court">${rank}</span>`;
+    if (c.r >= 11 && c.r <= 13) face = `<span class="face court">${sym}</span>`;
     else if (c.r === 14) face = `<span class="face ace">${sym}</span>`;
     else face = `<span class="face">${sym}</span>`;
     el.innerHTML = `<span class="ix"><b>${rank}</b><i>${sym}</i></span>${face}<span class="ix ix-b"><b>${rank}</b><i>${sym}</i></span>`;
