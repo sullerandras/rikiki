@@ -376,8 +376,12 @@
     wrap.style.setProperty('--per-row', String(Math.ceil(k / rows)));
   }
 
-  /** One fixed slot per player, in playing order from the leader. Slots are
-   * built once per trick and cards drop into them, so nothing shifts around. */
+  /** Players in table order, opponents as the seats show them and you last,
+   * so every player keeps the same place in the trick whoever leads. */
+  const tableOrder = (N) => Array.from({ length: N }, (_, k) => (k + 1) % N);
+
+  /** One fixed slot per player, in table order. Slots are built once per
+   * trick and cards drop into them, so nothing shifts around. */
   function renderTrick() {
     const r = state.round;
     const box = $('#trick');
@@ -388,10 +392,9 @@
       trickKey = key;
       box.innerHTML = '';
       if (!active) return;
-      for (let k = 0; k < N; k++) {
-        const p = (r.leader + k) % N;
+      for (const p of tableOrder(N)) {
         const slot = document.createElement('div');
-        slot.className = 'play empty';
+        slot.className = 'play empty' + (p === r.leader ? ' led' : '');
         slot.dataset.p = p;
         slot.innerHTML = `<div class="slot"></div><span class="who">${esc(nameOf(p))}</span>`;
         box.append(slot);
@@ -926,9 +929,11 @@
         `<div class="last-trick"></div><div class="foot"><button type="button" class="btn primary" data-act="close">Close</button></div>`
     );
     const box = sheet.querySelector('.last-trick');
-    for (const { p, card } of t.plays) {
+    const led = t.plays[0].p;
+    for (const p of tableOrder(state.players.length)) {
+      const { card } = t.plays.find((x) => x.p === p);
       const slot = document.createElement('div');
-      slot.className = 'play' + (p === t.winner ? ' leading' : '');
+      slot.className = 'play' + (p === t.winner ? ' leading' : '') + (p === led ? ' led' : '');
       const who = document.createElement('span');
       who.className = 'who';
       who.textContent = nameOf(p);
