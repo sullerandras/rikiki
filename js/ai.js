@@ -13,11 +13,18 @@
   const { SUITS, SUIT_INDEX, JOKER, shuffle } = Riki.cards;
   const { TRUMPS, isTrump, group, beats, winningPlay, legalCards, roundScore } = Riki.rules;
 
+  // 1: a beginner's simple habits. 2: the heuristic, guessing one off now and then.
+  // 3: the heuristic. 4, 5: Monte Carlo search.
   const LEVELS = {
-    easy: { mc: false, bidNoise: 0.4, playNoise: 0.2 },
-    normal: { mc: true, bidSamples: 60, playSamples: 60, ms: 250, caps: false },
-    hard: { mc: true, bidSamples: 500, playSamples: 500, ms: 900, caps: true },
+    1: { novice: true, holdAces: true, kings: true },
+    2: { mc: false, bidNoise: 0.4, playNoise: 0 },
+    3: { mc: false, bidNoise: 0, playNoise: 0 },
+    4: { mc: true, bidSamples: 60, playSamples: 60, ms: 250, caps: false },
+    5: { mc: true, bidSamples: 500, playSamples: 500, ms: 900, caps: true },
   };
+  /** Level names used before the numbered levels, still found in saved matches. */
+  const LEGACY = { easy: 2, normal: 4, hard: 5 };
+  const levelOf = (level) => (LEVELS[level] ? Number(level) : LEGACY[level] || 4);
 
   const now = typeof performance !== 'undefined' ? () => performance.now() : () => Date.now();
   const key = (s, r) => SUIT_INDEX[s] * 15 + r;
@@ -404,11 +411,44 @@
     return options[bi];
   }
 
+  // ------------------------------------------------------------ novice
+
+  /** Counts sure-looking winners: side aces (and kings with cfg.kings), high trumps, jokers. */
+  function noviceBid(view, cfg) {
+    const side = cfg.kings ? 13 : 14;
+    let b = 0;
+    for (const c of view.hand) if (c.s === JOKER || (isTrump(c, view.trump) ? c.r >= 11 : c.r >= side)) b++;
+    return Math.min(view.n, b);
+  }
+
+  /** A beginner's habits: lead a side ace while nobody is known to be out of that suit,
+   * else the lowest side card; otherwise play the lowest legal card, except that
+   * once the guess is made, big cards are thrown away when not following suit.
+   * cfg.holdAces: never leads an ace while it holds another side card. */
+  function noviceCard(view, cfg) {
+    const { hand, trick, trump, same } = view;
+    const legal = legalCards(hand, trick, trump, same);
+    const need = view.bids[view.me] - view.won[view.me];
+    const side = legal.filter((c) => !isTrump(c, trump));
+    if (!trick.length) {
+      if (need > 0 && !cfg.holdAces) {
+        const { voids } = inferConstraints(view, false);
+        const aces = side.filter((c) => c.r === 14 && !voids.some((v, q) => q !== view.me && v[c.s]));
+        if (aces.length) return aces[0];
+      }
+      return minBy(side.length ? side : legal, (c) => c.r);
+    }
+    const following = legal.some((c) => group(c, trump) === group(trick[0].card, trump));
+    if (!following && need <= 0 && side.length) return maxBy(side, (c) => c.r);
+    return minBy(legal, (c) => strength(c, trump));
+  }
+
   // ------------------------------------------------------------- public API
 
   function chooseBid(view, level, rng) {
     rng = rng || Math.random;
-    const cfg = LEVELS[level] || LEVELS.normal;
+    const cfg = LEVELS[levelOf(level)];
+    if (cfg.novice) return noviceBid(view, cfg);
     if (cfg.mc) return mcBid(view, cfg, rng);
     let b = heuristicBid(view.hand, view, view.N, view.me === view.firstLeader);
     if (rng() < cfg.bidNoise) b += rng() < 0.5 ? -1 : 1;
@@ -417,12 +457,13 @@
 
   function chooseCard(view, level, rng) {
     rng = rng || Math.random;
-    const cfg = LEVELS[level] || LEVELS.normal;
+    const cfg = LEVELS[levelOf(level)];
+    if (cfg.novice) return noviceCard(view, cfg);
     if (cfg.mc) return mcCard(view, cfg, rng);
     const legal = legalCards(view.hand, view.trick, view.trump, view.same);
     if (rng() < cfg.playNoise) return legal[Math.floor(rng() * legal.length)];
     return heuristicPlay(playCtx(view, publicSeen(view)));
   }
 
-  Riki.ai = { LEVELS, chooseBid, chooseCard, heuristicBid, heuristicPlay, inferConstraints, sampleDeal, unknownCards };
+  Riki.ai = { LEVELS, levelOf, chooseBid, chooseCard, heuristicBid, heuristicPlay, inferConstraints, sampleDeal, unknownCards };
 })(globalThis);

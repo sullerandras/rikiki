@@ -40,13 +40,16 @@ The match is saved in the browser after every card, so you can close the tab and
 
 ## Bots
 
-| Level  | How it plays |
-|--------|--------------|
-| Easy   | Card-counting heuristic with deliberate mistakes. |
-| Normal | Monte Carlo: deals the unseen cards randomly, plays every option out to the end of the round and keeps the best. |
-| Hard   | More simulations, and it infers hands from the strict rules. For example, a player who followed suit without beating the winning card holds nothing higher in that suit. |
+| Level | How it plays |
+|-------|--------------|
+| 1     | A beginner's habits: guesses its aces, kings and high trumps; leads small cards and keeps its aces for later; plays the lowest card allowed; once its guess is made, throws away big cards when it can't follow suit. |
+| 2     | Card-counting heuristic that sometimes guesses one off. |
+| 3     | The same heuristic, no mistakes. |
+| 4     | Monte Carlo: deals the unseen cards randomly, plays every option out to the end of the round and keeps the best. |
+| 5     | More simulations, and it infers hands from the strict rules. For example, a player who followed suit without beating the winning card holds nothing higher in that suit. |
 
-The hint button asks the Hard bot.
+Level 1 is the default. Bots never play a random card, so their mistakes look like a person's. Matches saved with the
+old easy / normal / hard levels load as 2 / 4 / 5. The hint button asks level 5.
 
 ## Project layout
 
@@ -61,7 +64,7 @@ js/ui.js          rendering, animation, game loop
 test/             node --test suites (rules, engine, inference)
 tools/build.mjs   bundles everything into dist/rikiki.html
 tools/serve.mjs   tiny static server for LAN play
-tools/simulate.cjs bot tournament, e.g. `npm run simulate -- 40 normal,hard,normal,hard 8 twenty jokers=2,same,trump=sometimes`
+tools/simulate.cjs bot tournament, e.g. `npm run simulate -- 40 1,3,4,5 8 twenty jokers=2,same,trump=sometimes`
 ```
 
 The scripts are plain (non-module) files so the page works from `file://`. They attach to `globalThis.Riki`, which lets the Node tests `require()` them directly.

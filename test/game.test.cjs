@@ -36,7 +36,7 @@ function playMatch(levels, opts, seed) {
 
 test('full matches run to completion with legal play at every level', () => {
   for (let seed = 1; seed <= 4; seed++) {
-    const st = playMatch(['easy', 'normal', 'hard', 'easy'], {}, seed);
+    const st = playMatch([1, 2, 3, 4, 5], {}, seed);
     assert.equal(st.history.length, 11);
     st.players.forEach((p, i) => assert.equal(p.score, st.history.reduce((a, h) => a + h.points[i], 0)));
   }
@@ -50,7 +50,7 @@ test('full matches run with jokers, same card beats and every trump mode', () =>
     { jokers: 3, sameBeats: true, trumpMode: 'never' },
   ];
   variants.forEach((v, k) => {
-    const st = playMatch(['easy', 'normal', 'hard'], v, 20 + k);
+    const st = playMatch([1, 3, 5], v, 20 + k);
     assert.equal(st.history.length, 11);
     for (const h of st.history) {
       if (v.trumpMode === 'never') assert.equal(h.trump, null);

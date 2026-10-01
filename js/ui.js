@@ -46,7 +46,7 @@
     {
       name: '',
       opponents: 3,
-      level: 'normal',
+      level: 1,
       decks: 2,
       jokers: 0,
       maxCards: 10,
@@ -60,6 +60,7 @@
     },
     store.get(KEY_SETTINGS) || {}
   );
+  if (settings.level !== 'mixed') settings.level = AI.levelOf(settings.level);
 
   let state = null;
   let gen = 0; // bumps whenever a match is started/left, cancelling the running loop
@@ -183,7 +184,7 @@
       settings.opponents = v;
       refreshSetup();
     });
-    seg($('#f-level'), 'level', [['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard'], ['mixed', 'Mixed']], settings.level, (v) => {
+    seg($('#f-level'), 'level', [1, 2, 3, 4, 5].map((n) => [n, String(n)]).concat([['mixed', 'Mixed']]), settings.level, (v) => {
       settings.level = v;
       refreshSetup();
     });
@@ -232,6 +233,15 @@
     refreshSetup();
   }
 
+  const LEVEL_HINT = {
+    1: 'Plays like a beginner: leads small cards and keeps its aces for later.',
+    2: 'Plays sensibly, and sometimes guesses one off.',
+    3: 'Plays sensibly and guesses carefully.',
+    4: 'Tries out every card it could play. Strong.',
+    5: 'Thinks longer, and works out what the others hold from how they played. The hint button asks this level.',
+    mixed: 'One opponent at level 1, one at 3, one at 5, and so on.',
+  };
+
   function refreshSetup() {
     const players = settings.opponents + 1;
     const maxH = R.maxHandSize(players, settings.decks, settings.jokers, settings.trumpMode);
@@ -248,6 +258,7 @@
     const schedule = R.buildSchedule(m, settings.shape);
     const cardsPlayed = schedule.reduce((a, b) => a + b, 0) * players;
     const minutes = Math.max(1, Math.round((cardsPlayed * sp().perCard + schedule.length * 15) / 60));
+    $('#level-hint').textContent = LEVEL_HINT[settings.level];
     $('#scoring-hint').textContent = SCORING_HINT[settings.scoring] || SCORING_HINT.classic;
     $('#jokers-hint').textContent = settings.jokers ? 'Jokers are the highest trumps, above the ace of trumps. You play one when you would have to trump.' : '';
     $('#jokers-hint').hidden = !settings.jokers;
@@ -288,7 +299,7 @@
     const n = settings.opponents;
     const mine = (settings.name || '').toLowerCase();
     const names = C.shuffle(BOT_NAMES.filter((x) => x.toLowerCase() !== mine)).slice(0, n);
-    const cycle = ['easy', 'normal', 'hard'];
+    const cycle = [1, 3, 5];
     const players = [{ name: settings.name || 'You', isHuman: true }].concat(
       names.map((name, i) => ({ name, level: settings.level === 'mixed' ? cycle[i % 3] : settings.level }))
     );
@@ -436,7 +447,7 @@
       const pl = state.players[p];
       const who = $('.who', slot);
       who.innerHTML = `${avatarHTML(p)}<span class="nm">${esc(nameOf(p))}</span>`;
-      who.title = p === HUMAN ? '' : `${pl.name} (${pl.level} bot)`;
+      who.title = p === HUMAN ? '' : `${pl.name} (level ${AI.levelOf(pl.level)} bot)`;
       $('.info', slot).innerHTML = `${tallyHTML(p)}<span class="score">${fmtScore(pl.score)}</span>`;
     }
     if (!active) return;
@@ -797,17 +808,17 @@
   }
 
   function showCardHint() {
-    const card = AI.chooseCard(G.viewFor(state, HUMAN), 'hard');
+    const card = AI.chooseCard(G.viewFor(state, HUMAN), 5);
     hint = { kind: 'card', id: card.id };
     renderHand();
-    toast(`Hard bot would play the ${C.cardName(card)}`);
+    toast(`Level 5 bot would play the ${C.cardName(card)}`);
   }
 
   function showBidHint() {
-    const b = AI.chooseBid(G.viewFor(state, HUMAN), 'hard');
+    const b = AI.chooseBid(G.viewFor(state, HUMAN), 5);
     hint = { kind: 'bid', value: b };
     renderBidbar();
-    toast(`Hard bot would guess ${b}`);
+    toast(`Level 5 bot would guess ${b}`);
   }
 
   // ------------------------------------------------------------ modals
