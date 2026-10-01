@@ -171,6 +171,38 @@
     return list;
   }
 
+  /** Zeros in a score's digits: 20 has one egg, 200 has two. */
+  function eggs(n) {
+    return (String(Math.abs(n)).match(/0/g) || []).length;
+  }
+
+  /**
+   * Per player, from the totals after each finished round: rounds on top and
+   * at the bottom (ties count for everyone sharing the place), average place,
+   * current and best run of rounds on top, and eggs in all the running totals.
+   */
+  function matchStats(state) {
+    const N = state.players.length;
+    const list = state.players.map((p, i) => ({ i, name: p.name, top: 0, bottom: 0, placeSum: 0, streak: 0, bestStreak: 0, eggs: 0 }));
+    for (const h of state.history) {
+      const places = h.totals.map((t) => 1 + h.totals.filter((u) => u > t).length);
+      const lastPlace = Math.max(...places);
+      for (let i = 0; i < N; i++) {
+        const e = list[i];
+        e.placeSum += places[i];
+        e.eggs += eggs(h.totals[i]);
+        if (places[i] === lastPlace && lastPlace > 1) e.bottom++;
+        if (places[i] === 1) {
+          e.top++;
+          e.bestStreak = Math.max(e.bestStreak, ++e.streak);
+        } else e.streak = 0;
+      }
+    }
+    const rounds = state.history.length;
+    list.forEach((e) => (e.avgPlace = rounds ? e.placeSum / rounds : null));
+    return list;
+  }
+
   /** What player p is allowed to know. Other bids are hidden until play starts. */
   function viewFor(state, p) {
     const r = state.round;
@@ -205,6 +237,8 @@
     nextRound,
     isLastRound,
     standings,
+    eggs,
+    matchStats,
     dealtHands,
     viewFor,
   };

@@ -448,6 +448,16 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
 .results tr.is-me td:first-child { color: var(--brass-hi); font-weight: 800; }
 .results .rank { display: inline-block; width: 18px; color: var(--text-faint); font-size: 12px; }
 
+/* stats */
+.stats-lead { margin: 0 0 14px; font-size: 16px; color: var(--ivory); }
+.stats-lead b { color: var(--brass-hi); }
+.results.stats th { letter-spacing: 0.04em; padding-left: 4px; padding-right: 4px; }
+.results.stats td { padding-left: 4px; padding-right: 4px; }
+.results.stats td:first-child { max-width: 0; width: 34%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.results.stats td.best { color: var(--brass-hi); font-weight: 800; }
+.stats-key { margin: 14px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--text-dim); }
+.stats-key b { color: var(--text); }
+
 /* scoresheet: a paper score pad */
 .pad-wrap { overflow-x: auto; margin: 4px -4px 0; padding: 4px; }
 .pad {

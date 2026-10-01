@@ -899,9 +899,12 @@
     const html =
       `<h2 id="modal-title">Scoresheet</h2><p class="sub">Running totals after each round. Underneath: guess / took, green when ${state.opts.scoring === 'twenty' ? 'the guess was reached' : 'exact'}.${state.history.some((x) => x.tricks) ? ' Tap a played round to replay it.' : ''}</p>` +
       `<div class="pad-wrap"><table class="pad"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` +
-      `<div class="foot"><button type="button" class="btn primary" data-act="close" data-autofocus>Close</button></div>`;
+      `<div class="foot">${state.history.length ? '<button type="button" class="btn" data-act="stats">Stats</button>' : ''}` +
+      `<button type="button" class="btn primary" data-act="close" data-autofocus>Close</button></div>`;
     const sheet = openModal(html, { back });
     sheet.querySelector('[data-act="close"]').addEventListener('click', () => closeModal());
+    const stats = sheet.querySelector('[data-act="stats"]');
+    if (stats) stats.addEventListener('click', () => showStats(() => showScoresheet(back)));
     for (const tr of sheet.querySelectorAll('tr.replayable')) {
       const open = () => showReplay(Number(tr.dataset.i), () => showScoresheet(back));
       tr.addEventListener('click', open);
@@ -909,6 +912,49 @@
     }
     const cur = sheet.querySelector('tr.current');
     if (cur) cur.scrollIntoView({ block: 'center' });
+  }
+
+  /** Who has been on top or at the bottom, for how long, and how many eggs. */
+  function showStats(back) {
+    const stats = G.matchStats(state);
+    const order = G.standings(state);
+    const rounds = state.history.length;
+    const leaders = order.filter((e) => e.place === 1).map((e) => stats[e.i]);
+    const names = leaders.map((e) => (e.i === HUMAN ? 'You' : esc(e.name))).join(' & ');
+    const run = leaders[0].streak;
+    const headline =
+      `${names} ${leaders.length > 1 || leaders[0].i === HUMAN ? 'have' : 'has'} been on top ` +
+      (run === rounds ? (rounds === 1 ? 'after the first round.' : `all <b>${rounds}</b> rounds.`) : run === 1 ? 'since the last round.' : `for <b>${run}</b> rounds in a row.`);
+    // the best value in each column gets highlighted (not Last); for average place, lower is better
+    const lead = {};
+    for (const key of ['top', 'bestStreak', 'eggs']) lead[key] = Math.max(...stats.map((e) => e[key]));
+    lead.avgPlace = Math.min(...stats.map((e) => e.avgPlace));
+    const cell = (e, key, text) => `<td${e[key] === lead[key] && e[key] > 0 ? ' class="best"' : ''}>${text}</td>`;
+    const rows = order
+      .map((o) => {
+        const e = stats[o.i];
+        return (
+          `<tr class="${e.i === HUMAN ? 'is-me' : ''}"><td><span class="rank">${o.place}.</span>${esc(e.name)}</td>` +
+          cell(e, 'top', e.top) +
+          cell(e, 'bottom', e.bottom) +
+          cell(e, 'avgPlace', e.avgPlace.toFixed(1)) +
+          cell(e, 'bestStreak', e.bestStreak) +
+          cell(e, 'eggs', e.eggs) +
+          '</tr>'
+        );
+      })
+      .join('');
+    const html =
+      `<h2 id="modal-title">Stats</h2><p class="sub">${plural(rounds, 'round')} played so far.</p>` +
+      `<p class="stats-lead">${headline}</p>` +
+      `<table class="results stats"><thead><tr><th>Player</th><th title="Rounds on top">Top</th><th title="Rounds at the bottom">Last</th>` +
+      `<th title="Average place">Avg</th><th title="Most rounds on top in a row">Run</th><th title="Zeros in the running totals">Eggs</th></tr></thead>` +
+      `<tbody>${rows}</tbody></table>` +
+      `<p class="stats-key"><b>Top</b>, <b>Last</b>: rounds ended first or last. <b>Avg</b>: average place. <b>Run</b>: most rounds on top in a row. ` +
+      `<b>Eggs</b>: zeros in the scoresheet totals, so 20 is one egg and 200 is two.</p>` +
+      `<div class="foot"><button type="button" class="btn primary" data-act="close" data-autofocus>Back</button></div>`;
+    const sheet = openModal(html, { back });
+    sheet.querySelector('[data-act="close"]').addEventListener('click', () => closeModal());
   }
 
   function showLastTrick() {

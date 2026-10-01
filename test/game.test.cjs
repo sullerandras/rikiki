@@ -121,3 +121,25 @@ test('first-to-target matches repeat the round pattern until someone gets there'
   assert.deepEqual(st.schedule.slice(0, 9), [1, 2, 3, 2, 1, 2, 3, 2, 1]);
   st.history.forEach((h) => h.points.forEach((pt, i) => assert.equal(pt, rules.roundScore(h.bids[i], h.won[i], 'twenty'))));
 });
+
+test('eggs count the zeros in a score', () => {
+  assert.deepEqual([0, 7, 20, 208, 200, -100, 1005].map(game.eggs), [1, 0, 1, 1, 2, 2, 2]);
+});
+
+test('match stats track places, runs on top and eggs', () => {
+  const totals = [
+    [10, 0, 0],
+    [20, 30, 0],
+    [40, 30, 10],
+    [60, 30, 10],
+    [60, 60, 100],
+  ];
+  const st = { players: ['a', 'b', 'c'].map((name) => ({ name })), history: totals.map((t) => ({ totals: t })) };
+  const s = game.matchStats(st);
+  assert.deepEqual(s.map((e) => e.top), [3, 1, 1]);
+  assert.deepEqual(s.map((e) => e.bottom), [1, 2, 4]);
+  assert.deepEqual(s.map((e) => e.bestStreak), [2, 1, 1]);
+  assert.deepEqual(s.map((e) => e.streak), [0, 0, 1]);
+  assert.deepEqual(s.map((e) => e.avgPlace), [7 / 5, 9 / 5, 12 / 5]);
+  assert.deepEqual(s.map((e) => e.eggs), [1 + 1 + 1 + 1 + 1, 1 + 1 + 1 + 1 + 1, 1 + 1 + 1 + 1 + 2]);
+});
