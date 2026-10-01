@@ -792,11 +792,13 @@
       `<p class="sub">${roundLabel(state)} · ${plural(h.n, 'card')} · trump ${C.SUIT_SYMBOL[h.trump]} ${C.SUIT_NAME[h.trump]}</p>` +
       `<table class="results"><thead><tr><th>Player</th><th>Guess</th><th>Took</th><th>Points</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>` +
       targetLine() +
-      `<div class="foot"><button type="button" class="btn" data-act="replay"${h.tricks ? '' : ' hidden'}>Replay round</button>` +
+      `<div class="foot tools"><button type="button" class="btn" data-act="replay"${h.tricks ? '' : ' hidden'}>Replay</button>` +
       `<button type="button" class="btn" data-act="sheet">Scoresheet</button>` +
-      `<button type="button" class="btn primary" data-act="next" data-autofocus>${last ? 'Final results' : `Next: ${plural(nextN, 'card')}, ${nextDealer === HUMAN ? 'you deal' : esc(state.players[nextDealer].name) + ' deals'}`}</button></div>`;
+      `<button type="button" class="btn" data-act="stats">Stats</button></div>` +
+      `<div class="foot"><button type="button" class="btn primary" data-act="next" data-autofocus>${last ? 'Final results' : `Next: ${plural(nextN, 'card')}, ${nextDealer === HUMAN ? 'you deal' : esc(state.players[nextDealer].name) + ' deals'}`}</button></div>`;
     const sheet = openModal(html, { locked: true });
     sheet.querySelector('[data-act="sheet"]').addEventListener('click', () => showScoresheet(showRoundSummary));
+    sheet.querySelector('[data-act="stats"]').addEventListener('click', () => showStats(showRoundSummary));
     sheet.querySelector('[data-act="replay"]').addEventListener('click', () => showReplay(state.history.length - 1, showRoundSummary));
     sheet.querySelector('[data-act="next"]').addEventListener('click', () => {
       G.nextRound(state);

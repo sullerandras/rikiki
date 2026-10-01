@@ -515,6 +515,8 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
 .sheet .foot.rp-nav .btn { flex: 0 0 64px; font-size: 18px; }
 .rp-step { flex: 1; text-align: center; font: 700 15px var(--f-display); color: var(--ivory); font-variant-numeric: tabular-nums; }
 .rp-nav + .foot { margin-top: 10px; }
+.sheet .foot.tools .btn { flex: 1 1 0; min-width: 0; padding: 0 8px; }
+.foot.tools + .foot { margin-top: 8px; }
 
 .podium { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .podium li {
