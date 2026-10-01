@@ -154,8 +154,10 @@
 
   /** Players sorted by score, with shared places for ties. */
   function standings(state) {
-    const list = state.players.map((p, i) => ({ i, name: p.name, score: p.score, exact: 0 }));
-    for (const h of state.history) h.bids.forEach((b, i) => b === h.won[i] && list[i].exact++);
+    const list = state.players.map((p, i) => ({ i, name: p.name, score: p.score, exact: 0, over: 0, under: 0 }));
+    for (const h of state.history) {
+      h.bids.forEach((b, i) => list[i][b === h.won[i] ? 'exact' : h.won[i] > b ? 'over' : 'under']++);
+    }
     list.sort((a, b) => b.score - a.score || b.exact - a.exact);
     list.forEach((e, k) => (e.place = k > 0 && list[k - 1].score === e.score ? list[k - 1].place : k + 1));
     return list;

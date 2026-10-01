@@ -15,6 +15,14 @@ test('scoring: exact = 10 + 2 per trick, miss = -2 per trick off', () => {
   assert.equal(rules.roundScore(0, 2), -4);
 });
 
+test('a guess is made when exact in classic, when reached with 20 per trick', () => {
+  assert.equal(rules.made(2, 2, 'classic'), true);
+  assert.equal(rules.made(2, 3, 'classic'), false);
+  assert.equal(rules.made(2, 3, 'twenty'), true);
+  assert.equal(rules.made(0, 1, 'twenty'), true);
+  assert.equal(rules.made(3, 2, 'twenty'), false);
+});
+
 test('trump beats other suits; higher of led suit wins; off-suit never wins', () => {
   assert.equal(rules.winningPlay(trick(c('H5'), c('H9'), c('S14')), 'C').p, 1);
   assert.equal(rules.winningPlay(trick(c('H5'), c('C2'), c('H14')), 'C').p, 1);

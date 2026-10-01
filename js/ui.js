@@ -318,7 +318,7 @@
     }
     const bid = r.bids[p];
     const won = r.won[p];
-    const cls = (won === bid ? ' exact' : won > bid ? ' bust' : '') + (revealAnim ? ' pop' : '');
+    const cls = (R.made(bid, won, state.opts.scoring) ? ' exact' : won > bid ? ' bust' : '') + (revealAnim ? ' pop' : '');
     return (
       `<span class="tally${cls}" aria-label="guessed ${bid}, took ${won}" title="guessed ${bid}, took ${won}">` +
       `<b class="g">${bid}</b><i>/</i><b class="t">${won}</b></span>`
@@ -763,15 +763,18 @@
     const place = {};
     order.forEach((e) => (place[e.i] = e.place));
     const myPts = h.points[HUMAN];
+    const myOff = h.won[HUMAN] - h.bids[HUMAN];
     const title =
-      h.bids[HUMAN] === h.won[HUMAN]
+      myOff === 0
         ? h.won[HUMAN] === 0
           ? 'Clean zero!'
           : 'Spot on!'
-        : `Off by ${Math.abs(h.bids[HUMAN] - h.won[HUMAN])}`;
+        : R.made(h.bids[HUMAN], h.won[HUMAN], state.opts.scoring)
+          ? `Made it, ${plural(myOff, 'extra trick')}`
+          : `Off by ${Math.abs(myOff)}`;
     let rows = '';
     for (let p = 0; p < N; p++) {
-      const hit = h.bids[p] === h.won[p];
+      const hit = R.made(h.bids[p], h.won[p], state.opts.scoring);
       rows +=
         `<tr class="${hit ? 'hit' : 'miss'}${p === HUMAN ? ' is-me' : ''}"><td><span class="rank">${place[p]}.</span>${esc(state.players[p].name)}</td>` +
         `<td>${h.bids[p]}</td><td>${h.won[p]}</td><td class="pts">${fmtPts(h.points[p])}</td>` +
@@ -825,6 +828,9 @@
   function showMatchEnd() {
     const order = G.standings(state);
     const rounds = state.history.length;
+    // classic only rewards exact guesses; with 20 per trick, over and under tell very different stories
+    const stats = (e) =>
+      state.opts.scoring === 'twenty' ? `${e.exact} exact · ${e.over} over · ${e.under} under` : `${e.exact} of ${rounds} guesses exact`;
     const top = order.filter((e) => e.place === 1);
     const iWon = top.some((e) => e.i === HUMAN);
     const title = iWon ? (top.length > 1 ? 'You share the win!' : 'You win!') : top.length > 1 ? 'A shared win' : `${esc(top[0].name)} wins`;
@@ -840,7 +846,7 @@
       .map(
         (e) =>
           `<li class="${e.i === HUMAN ? 'is-me' : ''}"><span class="place">${e.place}</span>` +
-          `<span class="nm">${esc(e.name)}<small>${e.exact} of ${rounds} guesses exact</small></span><span class="prize">${prize(e)}</span><span class="sc">${fmtScore(e.score)}</span></li>`
+          `<span class="nm">${esc(e.name)}<small>${stats(e)}</small></span><span class="prize">${prize(e)}</span><span class="sc">${fmtScore(e.score)}</span></li>`
       )
       .join('');
     const html =
@@ -875,7 +881,7 @@
       let cells = '';
       for (let p = 0; p < N; p++) {
         if (h) {
-          const hit = h.bids[p] === h.won[p];
+          const hit = R.made(h.bids[p], h.won[p], state.opts.scoring);
           cells += `<td class="${hit ? 'hit' : 'miss'}" title="${fmtPts(h.points[p])} this round"><span class="p">${fmtScore(h.totals[p])}</span><small>${h.bids[p]} / ${h.won[p]}</small></td>`;
         } else if (current && state.phase !== 'bidding') {
           cells += `<td><small>guess ${state.round.bids[p]}</small></td>`;
@@ -884,7 +890,7 @@
       body += `<tr class="${current ? 'current' : ''}"><th>${n} ${t}</th>${cells}</tr>`;
     });
     const html =
-      `<h2 id="modal-title">Scoresheet</h2><p class="sub">Running totals after each round. Underneath: guess / took, green when exact.</p>` +
+      `<h2 id="modal-title">Scoresheet</h2><p class="sub">Running totals after each round. Underneath: guess / took, green when ${state.opts.scoring === 'twenty' ? 'the guess was reached' : 'exact'}.</p>` +
       `<div class="pad-wrap"><table class="pad"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` +
       `<div class="foot"><button type="button" class="btn primary" data-act="close" data-autofocus>Close</button></div>`;
     const sheet = openModal(html, { back });
@@ -978,7 +984,7 @@
 <p class="ex">20 per trick. Guess 2, take 5: <b>+34</b> · Guess 5, take 2: <em>−6</em> · Guess 3, take 3: <b>+60</b> · Guess 0, take 2: <b>+6</b></p>
 <h3>Reading the table</h3>
 <ul>
-<li>Every player shows their guess and the tricks taken so far. The numbers turn green while exact and red once over.</li>
+<li>Every player shows their guess and the tricks taken so far. The numbers turn green while exact and red once over. With 20 per trick they stay green once the guess is reached, since extra tricks only cost 2 each.</li>
 <li>Trump cards in your hand have a brass line along the bottom edge. Cards you are not allowed to play are dimmed on your turn.</li>
 <li>The top bar shows the total of all guesses against the number of tricks: <span style="color:var(--bad)">more</span> means somebody will miss, <span style="color:var(--good)">fewer</span> means somebody will take more than planned.</li>
 </ul>

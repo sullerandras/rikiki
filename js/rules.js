@@ -63,6 +63,12 @@
     return bid === won ? 10 + 2 * won : -2 * Math.abs(bid - won);
   }
 
+  /** Did the guess count as made? Classic needs it exact; with 20 per trick,
+   * extra tricks only cost a little, so reaching the guess is enough. */
+  function made(bid, won, scoring) {
+    return scoring === 'twenty' ? won >= bid : won === bid;
+  }
+
   /** One card is always left over to turn up as trump. */
   function maxHandSize(players, decks) {
     return Math.floor((decks * 52 - 1) / players);
@@ -76,5 +82,5 @@
     return up.concat(up.slice(0, -1).reverse());
   }
 
-  Riki.rules = { beats, winningPlay, legalCards, isLegal, whyIllegal, roundScore, maxHandSize, buildSchedule };
+  Riki.rules = { beats, winningPlay, legalCards, isLegal, whyIllegal, roundScore, made, maxHandSize, buildSchedule };
 })(globalThis);
