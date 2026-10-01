@@ -75,6 +75,7 @@ button { cursor: pointer; }
   border-color: #b8913d; color: #2a1f08;
   box-shadow: 0 2px 0 #6e5520, 0 6px 18px rgba(0, 0, 0, 0.35);
 }
+.btn:disabled { opacity: 0.35; cursor: default; }
 .btn.primary:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
 .btn.big { min-height: 52px; font-size: 17px; padding: 0 28px; }
 .btn.ghost { background: transparent; color: var(--text-dim); }
@@ -471,6 +472,40 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
 
 /* last trick + match end */
 .last-trick { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 14px 0 4px; }
+/* round replay: the trick on top, everyone's dealt hand below */
+.pad tr.replayable { cursor: pointer; }
+.pad tr.replayable:hover th, .pad tr.replayable:focus-visible th { color: var(--paper-ink); text-decoration: underline; }
+.pad tr.replayable:focus-visible { outline: 2px solid var(--brass); outline-offset: -2px; }
+.replay { touch-action: pan-y; }
+.replay .rp-trick { padding: 10px 0 0; }
+.replay .rp-trick .play { width: 52px; }
+.replay .rp-trick .card { --w: 44px; }
+.replay .rp-trick .who { max-width: 52px; font-size: 11px; }
+.rp-cap { min-height: 2.6em; margin: 8px 0 4px; text-align: center; color: var(--ivory); font-weight: 600; text-wrap: balance; }
+.rp-hands { display: flex; flex-direction: column; gap: 6px; }
+.rp-row { --mw: 34px; padding: 6px 8px 8px; border-radius: 12px; background: rgba(0, 0, 0, 0.18); }
+.rp-row.is-me { outline: 1px solid var(--brass-lo); }
+.rp-who { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; }
+.rp-who .nm { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-tally { margin-left: auto; flex: none; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.rp-tally.hit { color: var(--good); }
+.rp-tally.miss { color: var(--bad); }
+.rp-tally.up { color: var(--brass-hi); font-weight: 700; }
+.rp-cards { display: grid; padding-top: 10px; }
+.rp-cards .card { --w: var(--mw); transition: transform 0.2s, filter 0.2s; }
+.rp-cards .card.took { box-shadow: 0 0 0 2px var(--brass), 0 2px 5px rgba(0, 0, 0, 0.35); }
+.rp-cards .card.gone { filter: brightness(0.42) saturate(0.3); } /* solid, so overlapped cards do not show through */
+.rp-cards .card.now { z-index: 1; transform: translateY(-7px); box-shadow: 0 0 0 2px var(--ivory), 0 4px 10px rgba(0, 0, 0, 0.5); }
+.rp-cards .card.now.took { box-shadow: 0 0 0 2px var(--brass), 0 0 12px rgba(214, 174, 85, 0.7); }
+.sheet .foot.rp-nav {
+  position: sticky; bottom: calc(-1 * max(20px, env(safe-area-inset-bottom))); z-index: 2;
+  align-items: center; margin: 12px calc(-1 * var(--gutter)) 0; padding: 10px var(--gutter);
+  background: var(--felt-1); border-top: 1px solid var(--felt-line);
+}
+.sheet .foot.rp-nav .btn { flex: 0 0 64px; font-size: 18px; }
+.rp-step { flex: 1; text-align: center; font: 700 15px var(--f-display); color: var(--ivory); font-variant-numeric: tabular-nums; }
+.rp-nav + .foot { margin-top: 10px; }
+
 .podium { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .podium li {
   display: grid; grid-template-columns: 34px 1fr auto auto; gap: 10px; align-items: center;

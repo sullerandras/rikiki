@@ -325,10 +325,10 @@
     );
   }
 
-  function avatarHTML(p) {
+  function avatarHTML(p, dealer = state.dealer) {
     const initial = esc(Array.from(state.players[p].name)[0] || '?').toUpperCase();
-    const dealer = state.dealer === p ? '<span class="dealer" title="Dealer">D</span>' : '';
-    return `<span class="avatar" style="--hue:${HUES[p % HUES.length]}">${initial}${dealer}</span>`;
+    const badge = dealer === p ? '<span class="dealer" title="Dealer">D</span>' : '';
+    return `<span class="avatar" style="--hue:${HUES[p % HUES.length]}">${initial}${badge}</span>`;
   }
 
   /** A player's place at the table: their trick spot, name, guess / took and score. */
@@ -792,10 +792,12 @@
       `<p class="sub">${roundLabel(state)} · ${plural(h.n, 'card')} · trump ${C.SUIT_SYMBOL[h.trump]} ${C.SUIT_NAME[h.trump]}</p>` +
       `<table class="results"><thead><tr><th>Player</th><th>Guess</th><th>Took</th><th>Points</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>` +
       targetLine() +
-      `<div class="foot"><button type="button" class="btn" data-act="sheet">Scoresheet</button>` +
+      `<div class="foot"><button type="button" class="btn" data-act="replay"${h.tricks ? '' : ' hidden'}>Replay round</button>` +
+      `<button type="button" class="btn" data-act="sheet">Scoresheet</button>` +
       `<button type="button" class="btn primary" data-act="next" data-autofocus>${last ? 'Final results' : `Next: ${plural(nextN, 'card')}, ${nextDealer === HUMAN ? 'you deal' : esc(state.players[nextDealer].name) + ' deals'}`}</button></div>`;
     const sheet = openModal(html, { locked: true });
     sheet.querySelector('[data-act="sheet"]').addEventListener('click', () => showScoresheet(showRoundSummary));
+    sheet.querySelector('[data-act="replay"]').addEventListener('click', () => showReplay(state.history.length - 1, showRoundSummary));
     sheet.querySelector('[data-act="next"]').addEventListener('click', () => {
       G.nextRound(state);
       save();
@@ -891,14 +893,20 @@
           cells += `<td><small>guess ${state.round.bids[p]}</small></td>`;
         } else cells += '<td></td>';
       }
-      body += `<tr class="${current ? 'current' : ''}"><th>${n} ${t}</th>${cells}</tr>`;
+      const replay = h && h.tricks ? ` data-i="${i}" tabindex="0" title="Replay round ${i + 1}"` : '';
+      body += `<tr class="${current ? 'current' : ''}${replay ? ' replayable' : ''}"${replay}><th>${n} ${t}</th>${cells}</tr>`;
     });
     const html =
-      `<h2 id="modal-title">Scoresheet</h2><p class="sub">Running totals after each round. Underneath: guess / took, green when ${state.opts.scoring === 'twenty' ? 'the guess was reached' : 'exact'}.</p>` +
+      `<h2 id="modal-title">Scoresheet</h2><p class="sub">Running totals after each round. Underneath: guess / took, green when ${state.opts.scoring === 'twenty' ? 'the guess was reached' : 'exact'}.${state.history.some((x) => x.tricks) ? ' Tap a played round to replay it.' : ''}</p>` +
       `<div class="pad-wrap"><table class="pad"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` +
       `<div class="foot"><button type="button" class="btn primary" data-act="close" data-autofocus>Close</button></div>`;
     const sheet = openModal(html, { back });
     sheet.querySelector('[data-act="close"]').addEventListener('click', () => closeModal());
+    for (const tr of sheet.querySelectorAll('tr.replayable')) {
+      const open = () => showReplay(Number(tr.dataset.i), () => showScoresheet(back));
+      tr.addEventListener('click', open);
+      tr.addEventListener('keydown', (e) => e.key === 'Enter' && open());
+    }
     const cur = sheet.querySelector('tr.current');
     if (cur) cur.scrollIntoView({ block: 'center' });
   }
@@ -920,10 +928,117 @@
       const who = document.createElement('span');
       who.className = 'who';
       who.textContent = nameOf(p);
-      slot.append(cardEl(card, { trump: card.s === r.trump }), who);
+      const spot = document.createElement('div');
+      spot.className = 'spot';
+      spot.append(cardEl(card, { trump: card.s === r.trump }));
+      slot.append(spot, who);
       box.append(slot);
     }
     sheet.querySelector('[data-act="close"]').addEventListener('click', () => closeModal());
+  }
+
+  /** Step through a finished round: everyone's hand as dealt, then trick by
+   * trick. Hands keep their places, so the cards played so far just fade. */
+  function showReplay(i, back) {
+    const h = state.history[i];
+    const N = state.players.length;
+    const order = tableOrder(N);
+    const hands = G.dealtHands(h.tricks, N).map((hd) => C.sortHand(hd, h.trump));
+    const when = {}; // card id -> trick it was played in
+    h.tricks.forEach((t, k) => t.plays.forEach(({ card }) => (when[card.id] = k)));
+    const winCard = h.tricks.map((t) => t.plays.find((x) => x.p === t.winner).card.id);
+    const dealer = h.dealer === HUMAN ? 'You dealt' : `${esc(state.players[h.dealer].name)} dealt`;
+    const sheet = openModal(
+      `<h2 id="modal-title">Round ${i + 1} replay</h2>` +
+        `<p class="sub">${plural(h.n, 'card')} · trump ${C.SUIT_SYMBOL[h.trump]} ${C.SUIT_NAME[h.trump]} (turned up ${C.cardName(h.trumpCard)}) · ${dealer}</p>` +
+        `<div class="replay"><div class="last-trick rp-trick"></div><p class="rp-cap"></p><div class="rp-hands"></div></div>` +
+        `<div class="foot rp-nav"><button type="button" class="btn" data-act="prev" aria-label="Previous">◀</button>` +
+        `<span class="rp-step" aria-live="polite"></span>` +
+        `<button type="button" class="btn primary" data-act="next" aria-label="Next" data-autofocus>▶</button></div>` +
+        `<div class="foot"><button type="button" class="btn" data-act="close">Close</button></div>`,
+      { back, onKey: (e) => (e.key === 'ArrowLeft' ? go(-1) : e.key === 'ArrowRight' ? go(1) : false) }
+    );
+    const box = $('.rp-hands', sheet);
+    const els = {};
+    const tallies = {};
+    for (const p of order) {
+      const row = document.createElement('div');
+      row.className = 'rp-row' + (p === HUMAN ? ' is-me' : '');
+      row.innerHTML = `<div class="rp-who">${avatarHTML(p, h.dealer)}<span class="nm">${esc(nameOf(p))}</span><span class="rp-tally"></span></div><div class="rp-cards"></div>`;
+      const cardsBox = $('.rp-cards', row);
+      const n = hands[p].length;
+      cardsBox.style.gridTemplateColumns = n > 1 ? `repeat(${n - 1}, minmax(0, var(--mw))) var(--mw)` : 'var(--mw)';
+      for (const c of hands[p]) cardsBox.append((els[c.id] = cardEl(c, { trump: c.s === h.trump })));
+      tallies[p] = $('.rp-tally', row);
+      box.append(row);
+    }
+
+    let step = 0; // 0 = hands as dealt, k = trick k
+    function render() {
+      const k = step - 1;
+      const t = h.tricks[k];
+      for (const id in els) {
+        const w = when[id];
+        els[id].classList.toggle('gone', step > 0 && w < k);
+        els[id].classList.toggle('now', w === k);
+        els[id].classList.toggle('took', winCard[w] === id && (step === 0 || w <= k));
+      }
+      for (const p of order) {
+        const took = step === 0 ? h.won[p] : h.tricks.slice(0, step).filter((x) => x.winner === p).length;
+        const hit = R.made(h.bids[p], h.won[p], state.opts.scoring);
+        tallies[p].className = 'rp-tally' + (step === 0 ? (hit ? ' hit' : ' miss') : t.winner === p ? ' up' : '');
+        tallies[p].textContent = `guessed ${h.bids[p]} · took ${took}`;
+      }
+      const strip = $('.rp-trick', sheet);
+      strip.replaceChildren();
+      strip.hidden = !t;
+      if (t) {
+        const led = t.plays[0];
+        const win = t.plays.find((x) => x.p === t.winner);
+        for (const p of order) {
+          const { card } = t.plays.find((x) => x.p === p);
+          const slot = document.createElement('div');
+          slot.className = 'play' + (p === t.winner ? ' leading' : '') + (p === led.p ? ' led' : '');
+          const who = document.createElement('span');
+          who.className = 'who';
+          who.textContent = nameOf(p);
+          const spot = document.createElement('div');
+          spot.className = 'spot';
+          spot.append(cardEl(card, { trump: card.s === h.trump }));
+          slot.append(spot, who);
+          strip.append(slot);
+        }
+        const ruff = win.card.s === h.trump && led.card.s !== h.trump ? ', a trump' : '';
+        $('.rp-cap', sheet).textContent =
+          `${nameOf(led.p)} led ${C.cardName(led.card)}` +
+          (win === led ? ' and nobody beat it.' : `. ${nameOf(win.p)} took it with ${C.cardName(win.card)}${ruff}.`);
+      } else {
+        $('.rp-cap', sheet).textContent = 'Everyone’s cards as dealt. A gold ring marks each card that took a trick.';
+      }
+      $('.rp-step', sheet).textContent = step === 0 ? 'Hands' : `Trick ${step} of ${h.tricks.length}`;
+      $('[data-act="prev"]', sheet).disabled = step === 0;
+      $('[data-act="next"]', sheet).disabled = step === h.tricks.length;
+    }
+    function go(d) {
+      const s = Math.max(0, Math.min(h.tricks.length, step + d));
+      if (s === step) return false;
+      step = s;
+      render();
+      return true;
+    }
+    render();
+    $('[data-act="prev"]', sheet).addEventListener('click', () => go(-1));
+    $('[data-act="next"]', sheet).addEventListener('click', () => go(1));
+    $('[data-act="close"]', sheet).addEventListener('click', () => closeModal());
+    const area = $('.replay', sheet);
+    let x0 = null;
+    area.addEventListener('touchstart', (e) => (x0 = e.touches[0].clientX), { passive: true });
+    area.addEventListener('touchend', (e) => {
+      if (x0 === null) return;
+      const dx = e.changedTouches[0].clientX - x0;
+      x0 = null;
+      if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1);
+    });
   }
 
   function showMenu() {
@@ -1036,6 +1151,7 @@
     document.addEventListener('keydown', (e) => {
       if (!$('#modal').hidden) {
         if (e.key === 'Escape' && modalCtx && !modalCtx.locked) closeModal();
+        else if (modalCtx && modalCtx.onKey && modalCtx.onKey(e)) e.preventDefault();
         return;
       }
       if (!state || $('#game').hidden || e.target.tagName === 'INPUT') return;

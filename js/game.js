@@ -125,6 +125,7 @@
       won: r.won.slice(),
       points,
       totals: state.players.map((p) => p.score),
+      tricks: r.tricks,
     });
     state.phase = 'roundEnd';
   }
@@ -150,6 +151,13 @@
     const pattern = buildSchedule(state.opts.maxCards, state.opts.shape);
     const last = state.schedule[state.schedule.length - 1];
     state.schedule.push(...(pattern[0] === last && pattern.length > 1 ? pattern.slice(1) : pattern));
+  }
+
+  /** Everyone's hand as dealt, rebuilt from the cards they played. */
+  function dealtHands(tricks, N) {
+    const hands = Array.from({ length: N }, () => []);
+    for (const t of tricks) for (const { p, card } of t.plays) hands[p].push(card);
+    return hands;
   }
 
   /** Players sorted by score, with shared places for ties. */
@@ -197,6 +205,7 @@
     nextRound,
     isLastRound,
     standings,
+    dealtHands,
     viewFor,
   };
 })(globalThis);

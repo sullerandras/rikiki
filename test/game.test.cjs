@@ -12,6 +12,7 @@ function playMatch(levels, opts, seed) {
     const r = st.round;
     const total = r.hands.reduce((a, h) => a + h.length, 0);
     assert.equal(total, r.n * st.players.length);
+    const dealt = r.hands.map((h) => h.map((c) => c.id).sort());
     for (let p = 0; p < st.players.length; p++) game.setBid(st, p, ai.chooseBid(game.viewFor(st, p), st.players[p].level, rng));
     game.startPlay(st);
     while (st.phase === 'playing' || st.phase === 'trickDone') {
@@ -27,6 +28,7 @@ function playMatch(levels, opts, seed) {
     }
     const h = st.history[st.history.length - 1];
     assert.equal(h.won.reduce((a, b) => a + b, 0), h.n);
+    assert.deepEqual(game.dealtHands(h.tricks, st.players.length).map((hd) => hd.map((c) => c.id).sort()), dealt, 'replay rebuilds the deal');
     game.nextRound(st, rng);
   }
   return st;
