@@ -208,7 +208,7 @@ input[type='range'] { width: 100%; accent-color: var(--brass); min-height: 32px;
 
 .game {
   /* fills the screen; when a big hand needs more height the page scrolls vertically */
-  display: grid; grid-template-rows: auto auto minmax(min-content, 1fr) auto;
+  display: grid; grid-template-rows: auto minmax(min-content, 1fr) auto;
   grid-template-columns: minmax(0, 1fr); /* wide content must not stretch the page */
   height: auto; min-height: 100%;
   max-width: 1100px; margin: 0 auto;
@@ -248,58 +248,30 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
 .trump-chip.flip { animation: flip 0.6s ease-out; }
 @keyframes flip { from { transform: rotateY(90deg) scale(1.4); } to { transform: none; } }
 
-/* seats */
-.seats {
-  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px;
-  padding: 2px var(--gutter) 6px;
-}
-.seat {
-  flex: 0 1 calc((100% - (var(--per-row, 3) - 1) * 6px) / var(--per-row, 3)); max-width: 210px; min-width: 0;
-  position: relative;
-  display: flex; flex-direction: column; gap: 5px;
-  padding: 7px 10px; border-radius: 12px;
-  background: rgba(2, 18, 12, 0.42); border: 1px solid rgba(255, 255, 255, 0.06);
-  transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
-}
-.seat.turn { border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass), 0 0 18px rgba(214, 174, 85, 0.35); }
-.seat.won-trick { background: rgba(214, 174, 85, 0.2); }
-.seat .head { display: flex; align-items: center; gap: 7px; min-width: 0; }
-.seat .head .nm { flex: 1; }
-.seat .head .score { margin-left: auto; font-size: 15px; }
+/* players: each one's place at the table is their trick spot */
 .avatar {
   flex: none;
-  width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
-  font: 800 13px var(--f-display); color: #0b2018;
+  width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
+  font: 800 10px var(--f-display); color: #0b2018;
   background: hsl(var(--hue, 40) 60% 70%);
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.3);
   position: relative;
 }
-.seat .nm, .me-bar .nm { font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.seat .score, .me-bar .score {
-  font: 700 16px var(--f-display); color: var(--ivory); font-variant-numeric: tabular-nums; text-align: right;
-}
-.seat .meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; min-height: 20px; }
 .dealer {
   position: absolute; right: -5px; bottom: -4px;
-  width: 16px; height: 16px; border-radius: 50%;
+  width: 12px; height: 12px; border-radius: 50%;
   display: grid; place-items: center;
-  font: 800 9px var(--f-ui); color: #2a1f08;
+  font: 800 7.5px var(--f-ui); color: #2a1f08;
   background: var(--brass-hi); box-shadow: 0 0 0 2px var(--felt-1);
 }
-.thinking { display: inline-flex; gap: 3px; }
-.thinking i { width: 4px; height: 4px; border-radius: 50%; background: var(--brass-hi); animation: blink 1s infinite; }
-.thinking i:nth-child(2) { animation-delay: 0.15s; }
-.thinking i:nth-child(3) { animation-delay: 0.3s; }
-@keyframes blink { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
-
-/* guess / took: plain numbers, green while exact, red once over */
-.tally { display: inline-flex; align-items: baseline; gap: 10px; min-height: 20px; white-space: nowrap; }
-.tally > span { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
-.tally b { font: 800 17px/1 var(--f-display); letter-spacing: 0; color: var(--ivory); margin-left: 3px; font-variant-numeric: tabular-nums; }
-.tally .g b { color: var(--brass-hi); }
-.tally.exact .t b, .tally.exact .g b { color: var(--good); }
-.tally.bust .t b { color: var(--bad); }
-.tally .unknown { text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 12px; color: var(--text-faint); }
+/* want / got: plain numbers, green while exact, red once over */
+.tally { display: inline-flex; align-items: baseline; gap: 2px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tally b { font: 800 16px/1 var(--f-display); color: var(--ivory); }
+.tally b.g { color: var(--brass-hi); }
+.tally i { font-style: normal; font-size: 12px; color: var(--text-faint); }
+.tally.exact b { color: var(--good); }
+.tally.bust b.t { color: var(--bad); }
+.tally .unknown { font-weight: 600; font-size: 11px; color: var(--text-faint); }
 .pop { animation: pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1); }
 @keyframes pop { from { transform: scale(0.2); opacity: 0; } to { transform: none; opacity: 1; } }
 
@@ -321,15 +293,16 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
   font: 400 clamp(34px, 10vw, 72px) var(--f-logo); letter-spacing: 0.3em; padding-left: 0.3em;
   color: rgba(214, 174, 85, 0.05); pointer-events: none; white-space: nowrap;
 }
-.trick.idle { visibility: hidden; }
+.felt.bidding .trick { visibility: hidden; }
 .trick {
   position: relative; z-index: 1;
   display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 8px 6px;
   padding: 12px; max-width: 100%;
 }
-.play { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.play.led::before { /* who led this trick, since the order no longer shows it */
-  content: 'Lead'; position: absolute; top: -7px; right: -4px; z-index: 1; /* top-right corner has no index */
+.play { position: relative; width: calc(var(--tw) + 18px); display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.play .spot { position: relative; }
+.play.led .spot::before { /* who led this trick, since the order does not show it */
+  content: 'Lead'; position: absolute; top: -7px; right: -8px; z-index: 2; /* top-right corner has no index */
   padding: 1px 6px; border-radius: 999px;
   background: var(--brass); color: var(--felt-2);
   font: 800 9.5px var(--f-ui); letter-spacing: 0.06em; text-transform: uppercase;
@@ -342,14 +315,21 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
 }
 .play.next .slot { border-color: var(--brass); background: rgba(214, 174, 85, 0.1); animation: waiting 1.4s ease-in-out infinite; }
 @keyframes waiting { 50% { border-color: rgba(214, 174, 85, 0.35); } }
-.play.empty .who { color: var(--text-faint); }
-.play.next .who { color: var(--brass-hi); }
-.play .who {
-  font-size: 11.5px; font-weight: 700; color: var(--text-dim); max-width: calc(var(--tw) + 14px);
+.play .who { display: flex; align-items: center; justify-content: center; gap: 4px; max-width: 100%; margin-top: 2px; }
+.play .who .nm, .last-trick .who {
+  font-size: 11.5px; font-weight: 700; color: var(--text-dim); min-width: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.play.next .who .nm, .play.leading .who .nm { color: var(--brass-hi); }
+.play .info {
+  display: flex; align-items: center; justify-content: space-between; gap: 4px;
+  width: 100%; min-height: 22px; padding: 2px 6px; border-radius: 8px;
+  background: rgba(2, 18, 12, 0.45); transition: background 0.25s;
+}
+.play.next .info { box-shadow: 0 0 0 1px var(--brass); }
+.play.won-trick .info { background: rgba(214, 174, 85, 0.45); }
+.play .score { font: 700 13px var(--f-display); color: var(--text); font-variant-numeric: tabular-nums; }
 .play.leading .card { box-shadow: 0 0 0 2px var(--brass), 0 0 16px rgba(214, 174, 85, 0.55), 0 3px 8px rgba(0, 0, 0, 0.35); }
-.play.leading .who { color: var(--brass-hi); }
 .play.winner .card { transform: translateY(-6px); transition: transform 0.25s; }
 .felt-msg {
   position: absolute; left: 44px; right: 44px; bottom: 9px; z-index: 2;
@@ -358,6 +338,8 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .felt-msg.big { font: 700 22px var(--f-display); color: var(--ivory); bottom: auto; top: 50%; transform: translateY(-50%); }
+.hint-btn { position: absolute; left: 8px; bottom: 4px; z-index: 3; width: 30px; height: 30px; border-radius: 50%; background: rgba(0, 0, 0, 0.25); }
+.hint-btn svg { width: 17px; height: 17px; }
 .last-btn { position: absolute; right: 8px; bottom: 4px; z-index: 3; width: 30px; height: 30px; border-radius: 50%; background: rgba(0, 0, 0, 0.25); }
 .last-btn svg { width: 17px; height: 17px; }
 .countdown { /* fixed on the table's centre (set from JS), so a small table never clips it */
@@ -371,21 +353,8 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
 
 /* me */
 .me {
-  padding: 8px var(--gutter) max(10px, env(safe-area-inset-bottom));
-  display: flex; flex-direction: column; gap: 8px;
+  padding: 4px var(--gutter) max(10px, env(safe-area-inset-bottom));
 }
-.me-bar {
-  display: flex; align-items: center; gap: 10px; min-height: 40px;
-  padding: 5px 10px; border-radius: 12px;
-  background: rgba(2, 18, 12, 0.42); border: 1px solid rgba(255, 255, 255, 0.06);
-}
-.me-bar.turn { border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass), 0 0 18px rgba(214, 174, 85, 0.3); }
-.me-bar .avatar { grid-row: auto; flex: none; }
-.me-bar .who { display: flex; flex-direction: column; min-width: 0; gap: 3px; flex: 0 1 auto; }
-.me-bar .status { flex: 1; min-width: 0; text-align: right; font-size: 13px; font-weight: 700; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.me-bar .status.your-turn { color: var(--brass-hi); }
-.me-bar .score { flex: none; min-width: 34px; }
-
 .bidbar {
   position: relative; z-index: 3; width: calc(100% - 20px); max-width: 520px; margin: 10px;
   padding: 12px; border-radius: 16px;
@@ -549,7 +518,7 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
 
 /* toast */
 .toast {
-  position: fixed; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + var(--cw) * 1.42 + 70px); z-index: 40;
+  position: fixed; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + var(--cw) * 1.42 + 30px); z-index: 40;
   transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
   max-width: min(440px, calc(100% - 32px)); width: max-content;
   padding: 10px 16px; border-radius: 12px; text-align: center;
@@ -561,8 +530,6 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
 .toast.warn { border-color: var(--bad); }
 
 @media (min-width: 760px) {
-  .seats { gap: 10px; padding-top: 6px; }
-  .seat { padding: 9px 12px; }
   .felt { border-radius: 48px; }
   .trick { gap: 14px 12px; }
   .hand-row .card:hover { z-index: 2; }

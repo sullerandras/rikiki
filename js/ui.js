@@ -53,7 +53,6 @@
   let skipWait = null;
   let dealtRound = -1;
   let flippedRound = -1;
-  let thinking = -1;
   let pendingBid = null;
   let hint = null;
   let revealAnim = false;
@@ -262,11 +261,10 @@
     gen++;
     dealtRound = flippedRound = -1;
     trickKey = '';
-    thinking = -1;
     pendingBid = hint = null;
     $('#start').hidden = true;
     $('#game').hidden = false;
-    $('#seats').innerHTML = '';
+    $('#trick').innerHTML = '';
     $('#countdown').innerHTML = '';
     closeModal(true);
     render();
@@ -278,7 +276,6 @@
   function render() {
     if (!state) return;
     renderTop();
-    renderSeats();
     renderTrick();
     renderMe();
     renderHand();
@@ -312,20 +309,19 @@
     $('#btn-last').hidden = !(r.tricks.length && (state.phase === 'playing' || state.phase === 'trickDone'));
   }
 
-  /** Guess and tricks taken, as plain numbers everyone can read at a glance. */
+  /** Guess and tricks taken, as plain "want / got" numbers everyone can read at a glance. */
   function tallyHTML(p) {
     const r = state.round;
     if (state.phase === 'bidding') {
-      const ready = p === HUMAN ? pendingBid !== null : r.bids[p] !== null;
+      const ready = r.bids[p] !== null;
       return `<span class="tally"><span class="unknown">${ready ? 'ready' : 'guessing…'}</span></span>`;
     }
     const bid = r.bids[p];
     const won = r.won[p];
     const cls = (won === bid ? ' exact' : won > bid ? ' bust' : '') + (revealAnim ? ' pop' : '');
-    const label = `guessed ${bid}, took ${won}`;
     return (
-      `<span class="tally${cls}" aria-label="${label}">` +
-      `<span class="g">Guess <b>${bid}</b></span><span class="t">Took <b>${won}</b></span></span>`
+      `<span class="tally${cls}" aria-label="guessed ${bid}, took ${won}" title="guessed ${bid}, took ${won}">` +
+      `<b class="g">${bid}</b><i>/</i><b class="t">${won}</b></span>`
     );
   }
 
@@ -335,78 +331,54 @@
     return `<span class="avatar" style="--hue:${HUES[p % HUES.length]}">${initial}${dealer}</span>`;
   }
 
+  /** A player's place at the table: their trick spot, name, guess / took and score. */
   function seatEl(p) {
-    return p === HUMAN ? $('#me-bar') : $(`#seats .seat[data-p="${p}"]`);
+    return $(`#trick .play[data-p="${p}"]`);
   }
 
-  function renderSeats() {
-    const wrap = $('#seats');
-    const N = state.players.length;
-    if (wrap.children.length !== N - 1) {
-      wrap.innerHTML = '';
-      for (let p = 1; p < N; p++) {
-        const el = document.createElement('div');
-        el.className = 'seat';
-        el.dataset.p = p;
-        wrap.append(el);
-      }
-    }
-    balanceSeats();
-    const r = state.round;
-    for (let p = 1; p < N; p++) {
-      const pl = state.players[p];
-      const el = seatEl(p);
-      const turn = (state.phase === 'playing' && r.turn === p) || thinking === p;
-      el.classList.toggle('turn', turn);
-      el.title = `${pl.name} (${pl.level} bot)`;
-      const dots = thinking === p ? '<span class="thinking" aria-label="thinking"><i></i><i></i><i></i></span>' : '';
-      el.innerHTML =
-        `<span class="head">${avatarHTML(p)}<span class="nm">${esc(pl.name)}</span>${dots}<span class="score">${fmtScore(pl.score)}</span></span>` +
-        `<span class="meta">${tallyHTML(p)}</span>`;
-    }
-  }
-
-  /** Even rows of seats: 4 opponents on a phone become 2 + 2, not 3 + 1. */
-  function balanceSeats() {
-    const wrap = $('#seats');
-    const k = wrap.children.length;
-    const W = wrap.clientWidth - 32;
-    const fits = Math.max(1, Math.floor((W + 6) / (124 + 6)));
-    const rows = Math.ceil(k / fits);
-    wrap.style.setProperty('--per-row', String(Math.ceil(k / rows)));
-  }
-
-  /** Players in table order, opponents as the seats show them and you last,
-   * so every player keeps the same place in the trick whoever leads. */
+  /** Players in table order, opponents first and you last, so every player
+   * keeps the same place in the trick whoever leads. */
   const tableOrder = (N) => Array.from({ length: N }, (_, k) => (k + 1) % N);
 
-  /** One fixed slot per player, in table order. Slots are built once per
-   * trick and cards drop into them, so nothing shifts around. */
+  /** One fixed place per player, in table order. The card spots are reset
+   * once per trick and cards drop into them, so nothing shifts around. */
   function renderTrick() {
     const r = state.round;
     const box = $('#trick');
     const N = state.players.length;
     const active = state.phase === 'playing' || state.phase === 'trickDone';
-    // between tricks the slots stay (invisibly) so the table keeps its size
     const key = active ? `${state.roundIndex}:${r.tricks.length}:${r.leader}` : `idle:${N}`;
-    box.classList.toggle('idle', !active);
     if (key !== trickKey) {
+      const rebuild = box.children.length !== N;
       trickKey = key;
-      box.innerHTML = '';
+      if (rebuild) box.innerHTML = '';
       for (const p of tableOrder(N)) {
-        const slot = document.createElement('div');
+        let slot = rebuild ? null : seatEl(p);
+        if (!slot) {
+          slot = document.createElement('div');
+          slot.dataset.p = p;
+          slot.innerHTML = '<div class="spot"></div><span class="who"></span><span class="info"></span>';
+          box.append(slot);
+        }
         slot.className = 'play empty' + (active && p === r.leader ? ' led' : '');
-        slot.dataset.p = p;
-        slot.innerHTML = `<div class="slot"></div><span class="who">${esc(nameOf(p))}</span>`;
-        box.append(slot);
+        $('.spot', slot).innerHTML = '<div class="slot"></div>';
       }
+      if (rebuild) balanceTrick();
+    }
+    for (const slot of box.children) {
+      const p = Number(slot.dataset.p);
+      const pl = state.players[p];
+      const who = $('.who', slot);
+      who.innerHTML = `${avatarHTML(p)}<span class="nm">${esc(nameOf(p))}</span>`;
+      who.title = p === HUMAN ? '' : `${pl.name} (${pl.level} bot)`;
+      $('.info', slot).innerHTML = `${tallyHTML(p)}<span class="score">${fmtScore(pl.score)}</span>`;
     }
     if (!active) return;
     for (const { p, card } of r.trick) {
-      const slot = $(`.play[data-p="${p}"]`, box);
+      const slot = seatEl(p);
       if (!slot.classList.contains('empty')) continue;
       slot.classList.remove('empty');
-      slot.querySelector('.slot').replaceWith(cardEl(card, { trump: card.s === r.trump }));
+      $('.spot', slot).replaceChildren(cardEl(card, { trump: card.s === r.trump }));
     }
     const lead = r.trick.length ? R.winningPlay(r.trick, r.trump).p : -1;
     for (const slot of box.children) {
@@ -415,6 +387,21 @@
       slot.classList.toggle('winner', p === lead && state.phase === 'trickDone');
       slot.classList.toggle('next', state.phase === 'playing' && p === r.turn);
     }
+  }
+
+  /** Even rows of places: 5 players on a phone become 3 + 2, not 4 + 1. */
+  function balanceTrick() {
+    const box = $('#trick');
+    const k = box.children.length;
+    box.style.maxWidth = '';
+    if (!k) return;
+    const cs = getComputedStyle(box);
+    const gap = parseFloat(cs.columnGap) || 0;
+    const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+    const w = box.children[0].getBoundingClientRect().width;
+    const fits = Math.max(1, Math.floor((box.clientWidth - pad + gap) / (w + gap)));
+    const perRow = Math.ceil(k / Math.ceil(k / fits));
+    box.style.maxWidth = `${Math.ceil(perRow * w + (perRow - 1) * gap + pad) + 1}px`;
   }
 
   /** What the human must play right now, in words. */
@@ -434,28 +421,10 @@
     return `No ${sym} and no trumps: any card`;
   }
 
+  /** Your own place is at the table like everyone else's; only the hint button is yours alone. */
   function renderMe() {
     const r = state.round;
-    const me = state.players[HUMAN];
-    const bar = $('#me-bar');
-    const myTurn = state.phase === 'playing' && r.turn === HUMAN;
-    bar.classList.toggle('turn', myTurn);
-    const showHint = settings.hints && myTurn;
-    let status = '';
-    let cls = '';
-    if (state.phase === 'bidding') status = pendingBid === null ? 'Your guess?' : `You picked ${pendingBid}`;
-    else if (myTurn) {
-      // what to play is spelled out on the felt; the Hint button needs the room on phones
-      status = showHint ? '' : 'Your turn';
-      cls = 'your-turn';
-    } else if (state.phase === 'playing') status = `${nameOf(r.turn)} to play`;
-    else if (state.phase === 'trickDone') status = r.trickWinner === HUMAN ? 'You take it' : `${nameOf(r.trickWinner)} takes it`;
-    bar.innerHTML =
-      `${avatarHTML(HUMAN)}<span class="who"><span class="nm">${esc(me.name)}</span>${tallyHTML(HUMAN)}</span>` +
-      `<span class="status ${cls}">${esc(status)}</span>` +
-      (showHint ? '<button type="button" class="chip-btn" id="btn-hint">Hint</button>' : '') +
-      `<span class="score">${fmtScore(me.score)}</span>`;
-    if (showHint) $('#btn-hint').addEventListener('click', showCardHint);
+    $('#btn-hint').hidden = !(settings.hints && state.phase === 'playing' && r.turn === HUMAN);
   }
 
   function renderHand() {
@@ -491,7 +460,8 @@
     const cw = $('.card', handEl).offsetWidth;
     const k = els.length;
     const minStep = Math.max(28, cw * 0.45);
-    const fit = Math.max(1, Math.floor((W - cw) / minStep) + 1);
+    const cap = W < 600 ? 9 : Infinity; // more than 9 in a row gets fiddly on a phone
+    const fit = Math.max(1, Math.min(cap, Math.floor((W - cw) / minStep) + 1));
     const rows = Math.ceil(k / fit);
     const perRow = Math.ceil(k / rows);
     const built = [];
@@ -514,6 +484,7 @@
     const r = state.round;
     const show = state.phase === 'bidding' && r.bids[HUMAN] === null && runningGen !== gen;
     bar.hidden = !show;
+    $('#felt').classList.toggle('bidding', show); // the guess panel covers the table
     if (!show) return;
     const grid = $('#bid-grid');
     const scroll = grid.scrollLeft;
@@ -574,7 +545,7 @@
   }
 
   function animateCollect(w) {
-    const target = seatEl(w);
+    const target = $('.info', seatEl(w));
     const els = $$('#trick .card');
     if (!target || reduceMotion || !els.length || !els[0].animate) return Promise.resolve();
     const tr = target.getBoundingClientRect();
@@ -647,7 +618,7 @@
           await nextFrame();
           if (!alive(g)) return;
           G.setBid(st, p, AI.chooseBid(G.viewFor(st, p), st.players[p].level));
-          renderSeats();
+          renderTrick();
         }
         save();
         if (r.bids[HUMAN] === null) return; // wait for the human; pressing "show" kicks the loop again
@@ -668,7 +639,6 @@
           render();
           return;
         }
-        thinking = p;
         render();
         const t0 = performance.now();
         await nextFrame();
@@ -677,8 +647,7 @@
         const rest = sp().bot - (performance.now() - t0);
         if (rest > 0) await sleep(rest);
         if (!alive(g)) return;
-        thinking = -1;
-        const from = seatEl(p).getBoundingClientRect();
+        const from = $('.who', seatEl(p)).getBoundingClientRect();
         G.playCard(st, p, card.id);
         save();
         render();
@@ -1039,6 +1008,7 @@
     $('#btn-last').addEventListener('click', showLastTrick);
     $('#btn-bid').addEventListener('click', confirmBid);
     $('#btn-bid-hint').addEventListener('click', showBidHint);
+    $('#btn-hint').addEventListener('click', showCardHint);
     $('#felt').addEventListener('click', () => skipWait && skipWait());
     $$('[data-open="rules"]').forEach((b) => b.addEventListener('click', showRules));
     $('#modal').addEventListener('click', (e) => {
@@ -1050,7 +1020,7 @@
       resizeT = setTimeout(() => {
         if (!state || $('#game').hidden) return;
         layoutHand();
-        balanceSeats();
+        balanceTrick();
       }, 80);
     });
     document.addEventListener('keydown', (e) => {

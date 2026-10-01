@@ -106,8 +106,6 @@
       </button>
     </div>
 
-    <div id="seats" class="seats"></div>
-
     <main class="felt" id="felt">
       <div id="trick" class="trick" aria-live="polite"></div>
       <div id="bidbar" class="bidbar" hidden>
@@ -120,13 +118,15 @@
       </div>
       <div id="felt-msg" class="felt-msg"></div>
       <div id="countdown" class="countdown" aria-hidden="true"></div>
+      <button type="button" id="btn-hint" class="icon-btn hint-btn" aria-label="Hint" title="Hint" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.4 1 1.1 1 1.8V16h5v-.3c0-.7.4-1.4 1-1.8A6 6 0 0 0 12 3z"/></svg>
+      </button>
       <button type="button" id="btn-last" class="icon-btn last-btn" aria-label="Last trick" title="Last trick" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6L3.5 8.5M3.5 3.5v5h5M12 7.5V12l3 2"/></svg>
       </button>
     </main>
 
     <div class="me" id="me">
-      <div class="me-bar" id="me-bar"></div>
       <div id="hand" class="hand" aria-label="Your hand"></div>
     </div>
   </section>
