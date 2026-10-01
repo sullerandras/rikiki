@@ -486,6 +486,10 @@
     bar.hidden = !show;
     $('#felt').classList.toggle('bidding', show); // the guess panel covers the table
     if (!show) return;
+    // the table is covered while you guess, so say who opens the round
+    const lead = $('#bid-lead');
+    lead.textContent = r.leader === HUMAN ? 'You lead the first trick' : `${nameOf(r.leader)} leads the first trick`;
+    lead.classList.toggle('mine', r.leader === HUMAN);
     const grid = $('#bid-grid');
     const scroll = grid.scrollLeft;
     grid.innerHTML = '';

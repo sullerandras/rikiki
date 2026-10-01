@@ -365,6 +365,8 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
 @keyframes rise { from { transform: translateY(12px); opacity: 0; } }
 .felt > .bidbar[hidden] { display: flex !important; visibility: hidden; animation: none; } /* keeps its space */
 .bid-q { margin: 0; text-align: center; font: 700 17px var(--f-display); color: var(--ivory); }
+.bid-lead { margin: -6px 0 0; text-align: center; font-size: 13px; font-weight: 600; color: var(--text-dim); }
+.bid-lead.mine { color: var(--brass-hi); font-weight: 800; }
 .bid-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
 .bid-grid button {
   min-height: 44px; border-radius: 10px; border: 1px solid var(--felt-line); background: rgba(255, 255, 255, 0.05);
