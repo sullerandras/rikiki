@@ -466,19 +466,44 @@
     }
   }
 
-  /** Even rows of places: 5 players on a phone become 3 + 2, not 4 + 1. */
+  /** When everyone fits on one line, the places stay in a row. Otherwise they
+   * go round the table like real seats: you at the bottom middle, the next
+   * player on your left, on up and across the top, and back down the right. */
   function balanceTrick() {
     const box = $('#trick');
-    const k = box.children.length;
-    box.style.maxWidth = '';
+    const places = [...box.children];
+    const k = places.length;
+    box.classList.remove('ring');
+    box.style.gridTemplateColumns = '';
+    for (const el of places) el.style.gridArea = '';
     if (!k) return;
     const cs = getComputedStyle(box);
     const gap = parseFloat(cs.columnGap) || 0;
     const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
-    const w = box.children[0].getBoundingClientRect().width;
-    const fits = Math.max(1, Math.floor((box.clientWidth - pad + gap) / (w + gap)));
-    const perRow = Math.ceil(k / Math.ceil(k / fits));
-    box.style.maxWidth = `${Math.ceil(perRow * w + (perRow - 1) * gap + pad) + 1}px`;
+    const w = places[0].getBoundingClientRect().width;
+    const fits = Math.max(2, Math.floor((box.clientWidth - pad + gap) / (w + gap)));
+    if (k <= fits) return;
+    // a top and a bottom row, and one place on each side of any rows between
+    let rows = 2;
+    while (k - 2 * (rows - 2) > 2 * fits) rows++;
+    const ends = k - 2 * (rows - 2);
+    let bottom = Math.max(1, ends - fits);
+    if (bottom % 2 === 0 && bottom < fits && ends - bottom > 1) bottom++; // odd, so you sit in the middle
+    const top = ends - bottom;
+    const width = Math.max(top, bottom, rows > 2 ? 2 : 1);
+    // grid columns are half a place wide, so a shorter row can sit centred
+    const cell = (row, i, n) => `${row} / ${width - n + 2 * i + 1} / span 1 / span 2`;
+    const you = Math.floor((bottom - 1) / 2);
+    const ring = [];
+    for (let i = you - 1; i >= 0; i--) ring.push(cell(rows, i, bottom));
+    for (let r = rows - 1; r > 1; r--) ring.push(cell(r, 0, width));
+    for (let i = 0; i < top; i++) ring.push(cell(1, i, top));
+    for (let r = 2; r < rows; r++) ring.push(cell(r, width - 1, width));
+    for (let i = bottom - 1; i > you; i--) ring.push(cell(rows, i, bottom));
+    ring.push(cell(rows, you, bottom));
+    box.classList.add('ring');
+    box.style.gridTemplateColumns = `repeat(${2 * width}, ${(w + gap) / 2}px)`;
+    places.forEach((el, i) => (el.style.gridArea = ring[i]));
   }
 
   /** What the human must play right now, in words. */

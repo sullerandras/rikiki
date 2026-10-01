@@ -313,6 +313,7 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
   display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 8px 6px;
   padding: 12px; max-width: 100%;
 }
+.trick.ring { display: grid; column-gap: 0; justify-items: center; } /* seats round the table, placed from JS */
 .play { position: relative; width: calc(var(--tw) + 18px); display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .play .spot { position: relative; }
 .play.led .spot::before { /* who led this trick, since the order does not show it */
