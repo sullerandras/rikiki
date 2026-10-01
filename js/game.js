@@ -6,22 +6,35 @@
 (function (root) {
   'use strict';
   const Riki = (root.Riki = root.Riki || {});
-  const { makeDeck, shuffle } = Riki.cards;
-  const { winningPlay, isLegal, roundScore, buildSchedule, maxHandSize } = Riki.rules;
+  const { makeDeck, shuffle, isJoker } = Riki.cards;
+  const { winningPlay, isLegal, roundScore, buildSchedule, maxHandSize, NO_TRUMP_CHANCE } = Riki.rules;
 
   /**
    * opts: { players: [{name, isHuman, level}], decks, maxCards, shape,
    *         scoring: 'classic' | 'twenty',
-   *         target: 0 = play the round sequence once, N = first to N points (the sequence repeats) }
+   *         target: 0 = play the round sequence once, N = first to N points (the sequence repeats),
+   *         jokers: jokers per deck, sameBeats: a later identical card wins,
+   *         trumpMode: 'always' | 'sometimes' | 'never' }
    */
   function createMatch(opts, rng) {
     rng = rng || Math.random;
     const N = opts.players.length;
     if (N < 3) throw new Error('Rikiki needs at least 3 players');
-    const maxCards = Math.min(opts.maxCards, maxHandSize(N, opts.decks));
+    const jokers = opts.jokers || 0;
+    const trumpMode = opts.trumpMode || 'always';
+    const maxCards = Math.min(opts.maxCards, maxHandSize(N, opts.decks, jokers, trumpMode));
     const state = {
       v: 1,
-      opts: { decks: opts.decks, maxCards, shape: opts.shape || 'pyramid', scoring: opts.scoring || 'classic', target: opts.target || 0 },
+      opts: {
+        decks: opts.decks,
+        maxCards,
+        shape: opts.shape || 'pyramid',
+        scoring: opts.scoring || 'classic',
+        target: opts.target || 0,
+        jokers,
+        sameBeats: !!opts.sameBeats,
+        trumpMode,
+      },
       players: opts.players.map((p) => ({ name: p.name, isHuman: !!p.isHuman, level: p.level || 'normal', score: 0 })),
       schedule: buildSchedule(maxCards, opts.shape || 'pyramid'),
       roundIndex: -1,
@@ -39,18 +52,18 @@
     state.roundIndex++;
     if (state.roundIndex > 0) state.dealer = (state.dealer + 1) % N;
     const n = state.schedule[state.roundIndex];
-    const deck = shuffle(makeDeck(state.opts.decks), rng);
+    const deck = shuffle(makeDeck(state.opts.decks, state.opts.jokers), rng);
     const hands = Array.from({ length: N }, () => []);
     let k = 0;
     for (let i = 0; i < n; i++) {
       for (let j = 1; j <= N; j++) hands[(state.dealer + j) % N].push(deck[k++]);
     }
-    const trumpCard = deck[k];
+    const trumpCard = turnUp(state.opts, deck.slice(k), rng);
     const first = (state.dealer + 1) % N;
     state.round = {
       n,
       trumpCard,
-      trump: trumpCard.s,
+      trump: trumpCard && !isJoker(trumpCard) ? trumpCard.s : null,
       hands,
       bids: Array(N).fill(null),
       won: Array(N).fill(0),
@@ -61,6 +74,16 @@
       trickWinner: null,
     };
     state.phase = 'bidding';
+  }
+
+  /** The card turned up for trump, or null when none is turned. A turned-up
+   * joker means no trump; when there must be one, it goes back into the stock
+   * and the next suited card is turned instead. */
+  function turnUp(opts, stock, rng) {
+    const mode = opts.trumpMode || 'always';
+    if (mode === 'never') return null;
+    if (mode === 'sometimes') return opts.jokers || rng() >= NO_TRUMP_CHANCE ? stock[0] : null;
+    return stock.find((c) => !isJoker(c)) || stock[0];
   }
 
   function setBid(state, p, bid) {
@@ -87,11 +110,11 @@
     const idx = hand.findIndex((c) => c.id === cardId);
     if (idx < 0) throw new Error('Card not in hand');
     const card = hand[idx];
-    if (!isLegal(card, hand, r.trick, r.trump)) throw new Error('Illegal card');
+    if (!isLegal(card, hand, r.trick, r.trump, state.opts.sameBeats)) throw new Error('Illegal card');
     hand.splice(idx, 1);
     r.trick.push({ p, card });
     if (r.trick.length === state.players.length) {
-      r.trickWinner = winningPlay(r.trick, r.trump).p;
+      r.trickWinner = winningPlay(r.trick, r.trump, state.opts.sameBeats).p;
       state.phase = 'trickDone';
     } else {
       r.turn = (p + 1) % state.players.length;
@@ -211,6 +234,8 @@
       me: p,
       N,
       decks: state.opts.decks,
+      jokers: state.opts.jokers || 0,
+      same: !!state.opts.sameBeats,
       scoring: state.opts.scoring || 'classic',
       n: r.n,
       hand: r.hands[p].slice(),

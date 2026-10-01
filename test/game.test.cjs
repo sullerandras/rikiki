@@ -23,7 +23,7 @@ function playMatch(levels, opts, seed) {
       const p = st.round.turn;
       const view = game.viewFor(st, p);
       const card = ai.chooseCard(view, st.players[p].level, rng);
-      assert.ok(rules.isLegal(card, view.hand, view.trick, view.trump), 'AI played an illegal card');
+      assert.ok(rules.isLegal(card, view.hand, view.trick, view.trump, view.same), 'AI played an illegal card');
       game.playCard(st, p, card.id);
     }
     const h = st.history[st.history.length - 1];
@@ -40,6 +40,77 @@ test('full matches run to completion with legal play at every level', () => {
     assert.equal(st.history.length, 11);
     st.players.forEach((p, i) => assert.equal(p.score, st.history.reduce((a, h) => a + h.points[i], 0)));
   }
+});
+
+test('full matches run with jokers, same card beats and every trump mode', () => {
+  const variants = [
+    { jokers: 2, sameBeats: true, trumpMode: 'always' },
+    { jokers: 1, sameBeats: false, trumpMode: 'sometimes' },
+    { jokers: 0, sameBeats: true, trumpMode: 'sometimes' },
+    { jokers: 3, sameBeats: true, trumpMode: 'never' },
+  ];
+  variants.forEach((v, k) => {
+    const st = playMatch(['easy', 'normal', 'hard'], v, 20 + k);
+    assert.equal(st.history.length, 11);
+    for (const h of st.history) {
+      if (v.trumpMode === 'never') assert.equal(h.trump, null);
+      if (v.trumpMode === 'always') assert.ok(h.trump && h.trumpCard.s === h.trump);
+    }
+  });
+});
+
+test('trump modes decide the turned-up card', () => {
+  const players = ['a', 'b', 'c'].map((name) => ({ name }));
+  const rounds = (opts, seed) => {
+    const rng = cards.mulberry32(seed);
+    const st = game.createMatch({ players, decks: 1, maxCards: 1, shape: 'up', ...opts }, rng);
+    const out = [];
+    for (let i = 0; i < 400; i++) {
+      out.push({ trump: st.round.trump, card: st.round.trumpCard });
+      st.roundIndex = -1;
+      game.startRound(st, rng);
+    }
+    return out;
+  };
+  // always: a turned-up joker goes back, so the trump card is always suited
+  for (const x of rounds({ jokers: 4, trumpMode: 'always' }, 1)) assert.ok(x.card.s !== 'X' && x.trump === x.card.s);
+  for (const x of rounds({ jokers: 2, trumpMode: 'never' }, 2)) assert.ok(x.card === null && x.trump === null);
+  // sometimes, with jokers: no trump exactly when a joker is turned up
+  const withJ = rounds({ jokers: 4, trumpMode: 'sometimes' }, 3);
+  for (const x of withJ) assert.equal(x.trump === null, x.card.s === 'X');
+  assert.ok(withJ.some((x) => x.trump === null));
+  // sometimes, no jokers: about one round in five has no trump and no turned card
+  const noJ = rounds({ jokers: 0, trumpMode: 'sometimes' }, 4);
+  const none = noJ.filter((x) => x.trump === null);
+  for (const x of none) assert.equal(x.card, null);
+  assert.ok(none.length > 50 && none.length < 120, `${none.length} of 400 without trump`);
+});
+
+test('the deck holds the jokers and hand sizes leave room for them', () => {
+  const deck = cards.makeDeck(2, 3);
+  assert.equal(deck.length, 110);
+  assert.equal(deck.filter((x) => x.s === 'X').length, 6);
+  assert.equal(new Set(deck.map((x) => x.id)).size, 110);
+  const st = game.createMatch({ players: ['a', 'b', 'c'].map((name) => ({ name })), decks: 1, jokers: 2, maxCards: 99, trumpMode: 'never' }, cards.mulberry32(1));
+  assert.equal(st.opts.maxCards, 18);
+});
+
+test('inference treats jokers as the top of the trump group', () => {
+  const c = (str) => ({ id: str + '.x', s: str[0], r: Number(str.slice(1)) });
+  const view = {
+    me: 0, N: 3, decks: 1, jokers: 2, same: false, n: 2, trump: 'S', trumpCard: c('D2'),
+    hand: [c('H2')],
+    // hearts led, P1 trumped with the ace, P2 trumped lower: P2 has no joker and no spade above the ace
+    tricks: [{ plays: [{ p: 0, card: c('H9') }, { p: 1, card: c('S14') }, { p: 2, card: c('S3') }], winner: 1 }],
+    trick: [],
+    won: [0, 1, 0], bids: [1, 1, 1], handCounts: [1, 1, 1],
+  };
+  const cons = ai.inferConstraints(view, true);
+  assert.equal(cons.caps[2].T, 14);
+  const unknown = ai.unknownCards(view);
+  assert.equal(unknown.filter((x) => x.s === 'X').length, 2);
+  const rng = cards.mulberry32(9);
+  for (let i = 0; i < 100; i++) for (const x of ai.sampleDeal(unknown, [0, 1, 1], cons, rng)[2]) assert.notEqual(x.s, 'X');
 });
 
 test('dealer rotates and the player after the dealer leads', () => {
@@ -82,11 +153,11 @@ test('inferred voids and caps are respected by sampled deals', () => {
     hand: [c('H2'), c('C5')],
     // P1 led H10; P2 could not beat it (so no heart above 10) ; I (P0) won with... pretend.
     tricks: [{ plays: [{ p: 1, card: c('H10') }, { p: 2, card: c('H4') }, { p: 0, card: c('H13') }], winner: 0 }],
-    trick: [{ p: 0, card: c('C9') }, { p: 1, card: c('D7') }], // P1 is void in clubs and in spades
+    trick: [{ p: 0, card: c('C9') }, { p: 1, card: c('D7') }], // P1 is void in clubs and in trumps
     won: [1, 0, 0], bids: [1, 1, 1], handCounts: [2, 1, 2],
   };
   const cons = ai.inferConstraints(view, true);
-  assert.ok(cons.voids[1].C && cons.voids[1].S);
+  assert.ok(cons.voids[1].C && cons.voids[1].T);
   assert.equal(cons.caps[2].H, 10);
   const unknown = ai.unknownCards(view);
   const rng = cards.mulberry32(5);

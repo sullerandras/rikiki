@@ -15,6 +15,7 @@
   --ivory-2: #efe8d6;
   --ink: #1b1d22;
   --card-red: #c0342c;
+  --card-joker: #5e3b8c;
   --text: #eef3ee;
   --text-dim: #a8c3b5;
   --text-faint: #6f9483;
@@ -129,6 +130,16 @@ button { cursor: pointer; }
   background: repeating-linear-gradient(135deg, transparent 0 5px, rgba(214, 174, 85, 0.13) 5px 6px);
 }
 .card .face.ace { font-size: calc(var(--w) * 0.64); }
+.card.joker { color: var(--card-joker); }
+.card.joker .ix b { font-family: var(--f-ui); font-size: calc(var(--w) * 0.24); }
+.card.joker .face {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--w) * 0.03);
+  padding-top: 0;
+}
+.card.joker .face i { font-style: normal; font-size: calc(var(--w) * 0.56); line-height: 0.9; color: var(--brass-lo); -webkit-text-stroke: 1px var(--card-joker); }
+.card.joker .face small {
+  font: 800 calc(var(--w) * 0.12) / 1 var(--f-ui); letter-spacing: 0.14em; text-transform: uppercase;
+}
 .card.trump::after {
   content: ''; position: absolute; left: 22%; right: 22%; bottom: 0; height: 3px;
   border-radius: 3px 3px 0 0; background: var(--brass);
@@ -246,6 +257,8 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
 .trump-chip.red { color: var(--card-red); }
 .trump-chip b { font: 700 15px var(--f-display); }
 .trump-chip i { font: normal 22px var(--f-ui); }
+.trump-chip.none b { font: 800 10px var(--f-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); }
+.trump-chip.joker i { color: var(--card-joker); font-size: 20px; }
 .trump-chip.flip { animation: flip 0.6s ease-out; }
 @keyframes flip { from { transform: rotateY(90deg) scale(1.4); } to { transform: none; } }
 
@@ -473,6 +486,7 @@ body:has(.game:not([hidden])) { background: var(--felt-0); }
 .pad tbody th { font: 700 13px var(--f-ui); text-align: left; width: 58px; color: #5c6a86; }
 .pad tbody th .t { font-size: 14px; }
 .pad tbody th .t.red { color: var(--card-red); }
+.pad tbody th .t.none { opacity: 0.55; }
 .pad td { font: 700 17px/1 var(--f-display); }
 .pad td.hit small { color: #2f7d45; }
 .pad td.miss small { color: #b3261e; }

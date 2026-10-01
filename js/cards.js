@@ -6,10 +6,12 @@
 
   // Black/red alternating base order.
   const SUITS = ['S', 'H', 'C', 'D'];
-  const SUIT_SYMBOL = { S: '♠', H: '♥', D: '♦', C: '♣' };
-  const SUIT_NAME = { S: 'Spades', H: 'Hearts', D: 'Diamonds', C: 'Clubs' };
-  const SUIT_INDEX = { S: 0, H: 1, C: 2, D: 3 };
-  const RANK_LABEL = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
+  // Jokers have no suit: they get the pseudo-suit X and rank 15, above the aces.
+  const JOKER = 'X';
+  const SUIT_SYMBOL = { S: '♠', H: '♥', D: '♦', C: '♣', X: '★' };
+  const SUIT_NAME = { S: 'Spades', H: 'Hearts', D: 'Diamonds', C: 'Clubs', X: 'Jokers' };
+  const SUIT_INDEX = { S: 0, H: 1, C: 2, D: 3, X: 4 };
+  const RANK_LABEL = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A', 15: '★' };
 
   function rankLabel(r) {
     return RANK_LABEL[r] || String(r);
@@ -19,18 +21,21 @@
     return s === 'H' || s === 'D';
   }
 
+  const isJoker = (c) => c.s === JOKER;
+
   function cardName(c) {
-    return rankLabel(c.r) + SUIT_SYMBOL[c.s];
+    return isJoker(c) ? 'Joker' : rankLabel(c.r) + SUIT_SYMBOL[c.s];
   }
 
   /** Cards are plain JSON-friendly objects: {id, s, r}. Duplicates across decks
    * share s and r but have distinct ids. */
-  function makeDeck(decks) {
+  function makeDeck(decks, jokers) {
     const cards = [];
     for (let d = 0; d < decks; d++) {
       for (const s of SUITS) {
         for (let r = 2; r <= 14; r++) cards.push({ id: s + r + '.' + d, s, r });
       }
+      for (let j = 0; j < (jokers || 0); j++) cards.push({ id: JOKER + 15 + '.' + d + '.' + j, s: JOKER, r: 15 });
     }
     return cards;
   }
@@ -57,7 +62,7 @@
     return arr;
   }
 
-  /** Suit display order for a hand: non-trump suits alternating colours, trump last. */
+  /** Suit display order for a hand: non-trump suits alternating colours, trump last, then jokers. */
   function suitOrder(trump) {
     const others = SUITS.filter((s) => s !== trump);
     const red = others.filter(isRed);
@@ -66,6 +71,7 @@
     const odd = red.length === 2 ? black : red;
     const order = trump ? [pair[0], odd[0], pair[1]] : others;
     if (trump) order.push(trump);
+    order.push(JOKER);
     return order;
   }
 
@@ -76,11 +82,13 @@
 
   Riki.cards = {
     SUITS,
+    JOKER,
     SUIT_SYMBOL,
     SUIT_NAME,
     SUIT_INDEX,
     rankLabel,
     isRed,
+    isJoker,
     cardName,
     makeDeck,
     mulberry32,

@@ -29,6 +29,14 @@ The match is saved in the browser after every card, so you can close the tab and
   −2 × missing tricks. A zero guess is 10 − 2 × tricks taken. Guess 2, take 5 = 34; guess 5, take 2 = −6.
 - **First to 500 / 1000:** the round order repeats until someone reaches the target. The match ends after
   that round, and the highest score wins.
+- **Jokers (1 to 4 per deck):** suitless and all equal, they are the highest trumps, above the trump ace.
+  They follow the trump rules: you can't play one while you can follow suit, you must play one to beat a
+  trump you can't otherwise beat, and a led joker asks for trumps. Without a trump suit, the jokers are the only trumps.
+- **Same card beats:** a card identical to the winning one takes the trick (a later A♥ beats an earlier A♥).
+  It counts as beating, so it must be played when you have to beat.
+- **Trump: always / sometimes / never.** Always: a turned-up joker goes back and the next suited card is turned.
+  Sometimes: a turned-up joker means no trump that round, or without jokers, 1 round in 5 has none at random.
+  Never: nothing is turned up.
 
 ## Bots
 
@@ -53,7 +61,7 @@ js/ui.js          rendering, animation, game loop
 test/             node --test suites (rules, engine, inference)
 tools/build.mjs   bundles everything into dist/rikiki.html
 tools/serve.mjs   tiny static server for LAN play
-tools/simulate.cjs bot tournament, e.g. `npm run simulate -- 40 normal,hard,normal,hard 8 twenty`
+tools/simulate.cjs bot tournament, e.g. `npm run simulate -- 40 normal,hard,normal,hard 8 twenty jokers=2,same,trump=sometimes`
 ```
 
 The scripts are plain (non-module) files so the page works from `file://`. They attach to `globalThis.Riki`, which lets the Node tests `require()` them directly.

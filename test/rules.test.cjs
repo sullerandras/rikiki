@@ -4,6 +4,7 @@ const { rules } = require('./load.cjs');
 
 // 'H10' -> {id:'H10.0', s:'H', r:10}; ranks J=11 Q=12 K=13 A=14
 const c = (str, d = 0) => ({ id: str + '.' + d, s: str[0], r: Number(str.slice(1)) });
+const J = (d = 0) => c('X15', d); // a joker
 const ids = (cards) => cards.map((x) => x.id).sort();
 const trick = (...cards) => cards.map((card, p) => ({ p, card }));
 
@@ -106,4 +107,58 @@ test('"20 per trick" scoring', () => {
   assert.equal(s(3, 3), 60);
   assert.equal(s(0, 0), 10);
   assert.equal(s(0, 2), 6); // zero guess: 10 - 2 per trick
+});
+
+test('same card beats: a later identical card takes the trick', () => {
+  assert.equal(rules.winningPlay(trick(c('H14', 0), c('H14', 1)), 'S', true).p, 1);
+  assert.equal(rules.winningPlay(trick(c('H14', 0), c('H14', 1), c('H13')), 'S', true).p, 1);
+  // ...and counts as beating, so it must be played when it is the only way to win
+  const hand = [c('H14', 1), c('H2')];
+  assert.deepEqual(ids(rules.legalCards(hand, trick(c('H14', 0)), 'S', true)), ids([c('H14', 1)]));
+  // but only the same card: a same-rank card of another suit is no match
+  assert.equal(rules.winningPlay(trick(c('H14'), c('D14')), 'S', true).p, 0);
+});
+
+test('jokers beat the trump ace; between jokers the first wins, or the last with same card beats', () => {
+  assert.equal(rules.winningPlay(trick(c('H5'), c('S14'), J()), 'S').p, 2);
+  assert.equal(rules.winningPlay(trick(J(0), J(1)), 'S').p, 0);
+  assert.equal(rules.winningPlay(trick(J(0), J(1)), 'S', true).p, 1);
+  assert.ok(rules.isTrump(J(), 'S') && rules.isTrump(J(), null));
+});
+
+test('a joker is a trump: it cannot be played while you can follow suit', () => {
+  const hand = [c('H5'), J()];
+  assert.deepEqual(ids(rules.legalCards(hand, trick(c('H10')), 'S')), ids([c('H5')]));
+  assert.match(rules.whyIllegal(J(), hand, trick(c('H10')), 'S'), /Follow suit/);
+});
+
+test('void in the led suit, trick trumped with the ace: the joker must over-trump', () => {
+  const hand = [c('S3'), J(), c('D9')];
+  assert.deepEqual(ids(rules.legalCards(hand, trick(c('H10'), c('S14')), 'S')), ids([J()]));
+});
+
+test('a led joker asks for trumps', () => {
+  const hand = [c('S3'), c('H14')];
+  assert.deepEqual(ids(rules.legalCards(hand, trick(J()), 'S')), ids([c('S3')]));
+  assert.match(rules.whyIllegal(c('H14'), hand, trick(J()), 'S'), /Trumps were led/);
+  // no trumps in hand: anything goes
+  assert.deepEqual(ids(rules.legalCards([c('H3'), c('D4')], trick(J()), 'S')), ids([c('H3'), c('D4')]));
+});
+
+test('no trump suit: only the led suit wins, and jokers are the only trumps', () => {
+  assert.equal(rules.winningPlay(trick(c('H5'), c('S14'), c('H6')), null).p, 2);
+  assert.equal(rules.winningPlay(trick(c('H5'), J(), c('H6')), null).p, 1);
+  assert.deepEqual(ids(rules.legalCards([c('S3'), c('D4')], trick(c('H10')), null)), ids([c('S3'), c('D4')]));
+  const hand = [c('S3'), J()];
+  assert.deepEqual(ids(rules.legalCards(hand, trick(c('H10')), null)), ids([J()]));
+  assert.match(rules.whyIllegal(c('S3'), hand, trick(c('H10')), null), /must play a joker/);
+});
+
+test('hand sizes and no-trump chances', () => {
+  assert.equal(rules.maxHandSize(4, 1, 2, 'always'), 13); // 54 - 1 turned up
+  assert.equal(rules.maxHandSize(3, 1, 0, 'never'), 17); // nothing turned up
+  assert.equal(rules.noTrumpChance('always', 2), 0);
+  assert.equal(rules.noTrumpChance('never', 0), 1);
+  assert.equal(rules.noTrumpChance('sometimes', 0), 0.2);
+  assert.equal(rules.noTrumpChance('sometimes', 2), 2 / 54);
 });

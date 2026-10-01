@@ -43,7 +43,21 @@
   };
 
   const settings = Object.assign(
-    { name: '', opponents: 3, level: 'normal', decks: 2, maxCards: 10, shape: 'pyramid', scoring: 'classic', target: 0, speed: 'normal', hints: true },
+    {
+      name: '',
+      opponents: 3,
+      level: 'normal',
+      decks: 2,
+      jokers: 0,
+      maxCards: 10,
+      shape: 'pyramid',
+      trumpMode: 'always',
+      sameBeats: false,
+      scoring: 'classic',
+      target: 0,
+      speed: 'normal',
+      hints: true,
+    },
     store.get(KEY_SETTINGS) || {}
   );
 
@@ -69,6 +83,23 @@
     classic: 'Exact guess: 10 + 2 per trick. Otherwise −2 per trick you are off.',
     twenty: 'Guess made: 20 per guessed trick, −2 per extra trick. Short: −2 per missing trick. A zero guess: 10, −2 per trick taken.',
   };
+  const SAME_HINT = {
+    false: 'Of two identical cards, the one played first wins.',
+    true: 'A card identical to the winning one takes the trick: a later A♥ beats an earlier A♥, a later joker beats an earlier one.',
+  };
+  /** "1 round in 27" for a probability. */
+  const oneIn = (p) => `1 round in ${Math.round(1 / p)}`;
+  function trumpHint(mode, jokers) {
+    if (mode === 'never') return `No card is turned up. A trick goes to the highest card of the led suit${jokers ? ', unless someone plays a joker' : ''}.`;
+    if (mode === 'sometimes') {
+      return jokers
+        ? `A turned-up joker means no trump that round: about ${oneIn(R.noTrumpChance(mode, jokers))}.`
+        : `${oneIn(R.NO_TRUMP_CHANCE)} has no trump, at random.`;
+    }
+    return 'The suit of the turned-up card is trump.' + (jokers ? ' A turned-up joker goes back into the stock and the next card is turned.' : '');
+  }
+  /** "trump ♠ Spades" or "no trump". */
+  const trumpText = (trump) => (trump ? `trump ${C.SUIT_SYMBOL[trump]} ${C.SUIT_NAME[trump]}` : 'no trump');
   /** "Round 5 of 19", or "Round 5 · to 1000" in first-to-target matches. */
   const roundLabel = (st) =>
     st.opts.target ? `Round ${st.roundIndex + 1} · to ${st.opts.target}` : `Round ${st.roundIndex + 1} of ${st.schedule.length}`;
@@ -95,6 +126,13 @@
     opts = opts || {};
     const el = document.createElement(opts.button ? 'button' : 'div');
     if (opts.button) el.type = 'button';
+    if (C.isJoker(c)) {
+      el.className = 'card joker' + (opts.trump ? ' trump' : '');
+      el.innerHTML = '<span class="ix"><b>★</b></span><span class="face"><i>★</i><small>Joker</small></span><span class="ix ix-b"><b>★</b></span>';
+      el.setAttribute('aria-label', 'Joker');
+      if (!opts.button) el.setAttribute('role', 'img');
+      return el;
+    }
     const rank = C.rankLabel(c.r);
     const sym = C.SUIT_SYMBOL[c.s];
     el.className = 'card ' + (C.isRed(c.s) ? 'red' : 'black') + (opts.trump ? ' trump' : '');
@@ -153,6 +191,18 @@
       settings.decks = v;
       refreshSetup();
     });
+    seg($('#f-jokers'), 'jokers', [[0, 'None'], [1, '1'], [2, '2'], [3, '3'], [4, '4']], settings.jokers, (v) => {
+      settings.jokers = v;
+      refreshSetup();
+    });
+    seg($('#f-trump'), 'trump', [['always', 'Always'], ['sometimes', 'Sometimes'], ['never', 'Never']], settings.trumpMode, (v) => {
+      settings.trumpMode = v;
+      refreshSetup();
+    });
+    seg($('#f-same'), 'same', [[false, 'First one wins'], [true, 'Same card beats']], settings.sameBeats, (v) => {
+      settings.sameBeats = v;
+      refreshSetup();
+    });
     seg($('#f-scoring'), 'scoring', [['classic', 'Classic'], ['twenty', '20 per trick']], settings.scoring, (v) => {
       settings.scoring = v;
       refreshSetup();
@@ -184,7 +234,7 @@
 
   function refreshSetup() {
     const players = settings.opponents + 1;
-    const maxH = R.maxHandSize(players, settings.decks);
+    const maxH = R.maxHandSize(players, settings.decks, settings.jokers, settings.trumpMode);
     const range = $('#f-max');
     range.max = String(maxH);
     settings.maxCards = Math.max(1, Math.min(settings.maxCards, maxH));
@@ -199,11 +249,15 @@
     const cardsPlayed = schedule.reduce((a, b) => a + b, 0) * players;
     const minutes = Math.max(1, Math.round((cardsPlayed * sp().perCard + schedule.length * 15) / 60));
     $('#scoring-hint').textContent = SCORING_HINT[settings.scoring] || SCORING_HINT.classic;
+    $('#jokers-hint').textContent = settings.jokers ? 'Jokers are the highest trumps, above the ace of trumps. You play one when you would have to trump.' : '';
+    $('#jokers-hint').hidden = !settings.jokers;
+    $('#trump-hint').textContent = trumpHint(settings.trumpMode, settings.jokers);
+    $('#same-hint').textContent = SAME_HINT[settings.sameBeats];
     const length = settings.target
       ? `Until someone reaches <b>${settings.target} points</b>, repeating ${plural(schedule.length, 'round')}`
       : `<b>${plural(schedule.length, 'round')}</b>`;
     $('#setup-summary').innerHTML =
-      `${length} · ${players} players · ${plural(settings.decks, 'deck')} (${settings.decks * 52} cards)` +
+      `${length} · ${players} players · ${plural(settings.decks, 'deck')} (${settings.decks * (52 + settings.jokers)} cards)` +
       (settings.target ? '' : ` · about <b>${minutes} min</b>`);
     saveSettings();
   }
@@ -245,6 +299,9 @@
       shape: settings.shape,
       scoring: settings.scoring,
       target: settings.target,
+      jokers: settings.jokers,
+      sameBeats: settings.sameBeats,
+      trumpMode: settings.trumpMode,
     });
     save();
     enterGame();
@@ -296,11 +353,20 @@
     const box = $('#trump-card');
     box.innerHTML = '';
     const t = document.createElement('div');
-    t.className = 'trump-chip ' + (C.isRed(r.trump) ? 'red' : 'black');
-    t.innerHTML = `<b>${C.rankLabel(r.trumpCard.r)}</b><i>${C.SUIT_SYMBOL[r.trump]}</i>`;
     t.setAttribute('role', 'img');
-    t.setAttribute('aria-label', `Trump is ${C.SUIT_NAME[r.trump]}, the turned-up card is ${C.cardName(r.trumpCard)}`);
-    t.title = `Trump: ${C.SUIT_NAME[r.trump]}`;
+    if (r.trump) {
+      t.className = 'trump-chip ' + (C.isRed(r.trump) ? 'red' : 'black');
+      t.innerHTML = `<b>${C.rankLabel(r.trumpCard.r)}</b><i>${C.SUIT_SYMBOL[r.trump]}</i>`;
+      t.setAttribute('aria-label', `Trump is ${C.SUIT_NAME[r.trump]}, the turned-up card is ${C.cardName(r.trumpCard)}`);
+      t.title = `Trump: ${C.SUIT_NAME[r.trump]}`;
+    } else {
+      // no trump suit: a turned-up joker, or nothing turned at all
+      const joker = !!r.trumpCard;
+      t.className = 'trump-chip none' + (joker ? ' joker' : '');
+      t.innerHTML = (joker ? '<i>★</i>' : '') + '<b>none</b>';
+      t.setAttribute('aria-label', 'No trump this round' + (joker ? ': a joker was turned up' : ''));
+      t.title = joker ? 'No trump: a joker was turned up' : 'No trump this round';
+    }
     if (flippedRound !== state.roundIndex) {
       flippedRound = state.roundIndex;
       t.classList.add('flip');
@@ -378,9 +444,9 @@
       const slot = seatEl(p);
       if (!slot.classList.contains('empty')) continue;
       slot.classList.remove('empty');
-      $('.spot', slot).replaceChildren(cardEl(card, { trump: card.s === r.trump }));
+      $('.spot', slot).replaceChildren(cardEl(card, { trump: R.isTrump(card, r.trump) }));
     }
-    const lead = r.trick.length ? R.winningPlay(r.trick, r.trump).p : -1;
+    const lead = r.trick.length ? R.winningPlay(r.trick, r.trump, state.opts.sameBeats).p : -1;
     for (const slot of box.children) {
       const p = Number(slot.dataset.p);
       slot.classList.toggle('leading', p === lead);
@@ -409,16 +475,24 @@
     const r = state.round;
     const hand = r.hands[HUMAN];
     if (!r.trick.length) return 'Your lead: any card';
-    const led = r.trick[0].card.s;
-    const best = R.winningPlay(r.trick, r.trump).card;
+    const same = state.opts.sameBeats;
+    const led = R.group(r.trick[0].card, r.trump);
+    const best = R.winningPlay(r.trick, r.trump, same).card;
+    const beat = `beat the ${C.cardName(best)}`;
+    const can = (pool) => pool.some((c) => R.beats(c, best, r.trump, same));
+    const trumps = hand.filter((c) => R.isTrump(c, r.trump));
+    // with no trump suit, the jokers are the only trumps
+    const aTrump = r.trump ? `a trump ${C.SUIT_SYMBOL[r.trump]}` : 'a joker';
+    if (led === R.TRUMPS) {
+      if (!trumps.length) return `Trumps led, you have none: any card`;
+      return can(trumps) ? `Trumps led: ${beat}` : `Trumps led: play ${aTrump}`;
+    }
     const sym = C.SUIT_SYMBOL[led];
-    const tsym = C.SUIT_SYMBOL[r.trump];
-    const can = (pool) => pool.some((c) => R.beats(c, best, r.trump));
     const ledCards = hand.filter((c) => c.s === led);
-    if (ledCards.length) return can(ledCards) ? `Follow ${sym} and beat the ${C.cardName(best)}` : `Follow ${sym}`;
-    const trumps = hand.filter((c) => c.s === r.trump);
-    if (trumps.length) return can(trumps) ? `No ${sym}: trump it, beat the ${C.cardName(best)}` : `No ${sym}: play a trump ${tsym}`;
-    return `No ${sym} and no trumps: any card`;
+    if (ledCards.length) return can(ledCards) ? `Follow ${sym} and ${beat}` : `Follow ${sym}`;
+    if (trumps.length) return can(trumps) ? `No ${sym}: trump it, ${beat}` : `No ${sym}: play ${aTrump}`;
+    if (!r.trump && !state.opts.jokers) return `No ${sym}: any card`;
+    return `No ${sym} and no ${r.trump ? 'trumps' : 'jokers'}: any card`;
   }
 
   /** Your own place is at the table like everyone else's; only the hint button is yours alone. */
@@ -432,12 +506,12 @@
     const handEl = $('#hand');
     const hand = C.sortHand(r.hands[HUMAN], r.trump);
     const myTurn = state.phase === 'playing' && r.turn === HUMAN;
-    const legal = myTurn ? new Set(R.legalCards(r.hands[HUMAN], r.trick, r.trump).map((c) => c.id)) : null;
+    const legal = myTurn ? new Set(R.legalCards(r.hands[HUMAN], r.trick, r.trump, state.opts.sameBeats).map((c) => c.id)) : null;
     handEl.classList.toggle('active', myTurn);
     const deal = dealtRound !== state.roundIndex && !reduceMotion;
     dealtRound = state.roundIndex;
     const els = hand.map((c, i) => {
-      const el = cardEl(c, { button: true, trump: c.s === r.trump });
+      const el = cardEl(c, { button: true, trump: R.isTrump(c, r.trump) });
       if (myTurn) el.classList.add(legal.has(c.id) ? 'legal' : 'dim');
       if (hint && hint.kind === 'card' && hint.id === c.id) el.classList.add('hinted');
       if (deal) {
@@ -706,7 +780,7 @@
     const r = state.round;
     if (r.turn !== HUMAN) return toast(`Wait: ${nameOf(r.turn)} is playing`);
     const card = r.hands[HUMAN].find((c) => c.id === id);
-    const why = R.whyIllegal(card, r.hands[HUMAN], r.trick, r.trump);
+    const why = R.whyIllegal(card, r.hands[HUMAN], r.trick, r.trump, state.opts.sameBeats);
     if (why) {
       el.classList.remove('shake');
       void el.offsetWidth;
@@ -789,7 +863,7 @@
     const nextDealer = (state.dealer + 1) % N;
     const html =
       `<h2 id="modal-title">${title} <span style="color:${myPts >= 0 ? 'var(--good)' : 'var(--bad)'}">${fmtPts(myPts)}</span></h2>` +
-      `<p class="sub">${roundLabel(state)} · ${plural(h.n, 'card')} · trump ${C.SUIT_SYMBOL[h.trump]} ${C.SUIT_NAME[h.trump]}</p>` +
+      `<p class="sub">${roundLabel(state)} · ${plural(h.n, 'card')} · ${trumpText(h.trump)}</p>` +
       `<table class="results"><thead><tr><th>Player</th><th>Guess</th><th>Took</th><th>Points</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>` +
       targetLine() +
       `<div class="foot tools"><button type="button" class="btn" data-act="replay"${h.tricks ? '' : ' hidden'}>Replay</button>` +
@@ -885,7 +959,11 @@
       const h = state.history[i];
       const current = i === state.roundIndex && !h;
       const trump = h ? h.trump : current ? state.round.trump : null;
-      const t = trump ? `<span class="t${C.isRed(trump) ? ' red' : ''}">${C.SUIT_SYMBOL[trump]}</span>` : '';
+      const t = trump
+        ? `<span class="t${C.isRed(trump) ? ' red' : ''}">${C.SUIT_SYMBOL[trump]}</span>`
+        : h || current
+          ? '<span class="t none" title="No trump">–</span>'
+          : '';
       let cells = '';
       for (let p = 0; p < N; p++) {
         if (h) {
@@ -964,7 +1042,7 @@
     const t = r.tricks[r.tricks.length - 1];
     if (!t) return;
     const sheet = openModal(
-      `<h2 id="modal-title">Last trick</h2><p class="sub">${t.winner === HUMAN ? 'You' : esc(nameOf(t.winner))} took it. Trump is ${C.SUIT_SYMBOL[r.trump]}.</p>` +
+      `<h2 id="modal-title">Last trick</h2><p class="sub">${t.winner === HUMAN ? 'You' : esc(nameOf(t.winner))} took it. ${r.trump ? `Trump is ${C.SUIT_SYMBOL[r.trump]}.` : 'No trump this round.'}</p>` +
         `<div class="last-trick"></div><div class="foot"><button type="button" class="btn primary" data-act="close">Close</button></div>`
     );
     const box = sheet.querySelector('.last-trick');
@@ -978,7 +1056,7 @@
       who.textContent = nameOf(p);
       const spot = document.createElement('div');
       spot.className = 'spot';
-      spot.append(cardEl(card, { trump: card.s === r.trump }));
+      spot.append(cardEl(card, { trump: R.isTrump(card, r.trump) }));
       slot.append(spot, who);
       box.append(slot);
     }
@@ -998,7 +1076,7 @@
     const dealer = h.dealer === HUMAN ? 'You dealt' : `${esc(state.players[h.dealer].name)} dealt`;
     const sheet = openModal(
       `<h2 id="modal-title">Round ${i + 1} replay</h2>` +
-        `<p class="sub">${plural(h.n, 'card')} · trump ${C.SUIT_SYMBOL[h.trump]} ${C.SUIT_NAME[h.trump]} (turned up ${C.cardName(h.trumpCard)}) · ${dealer}</p>` +
+        `<p class="sub">${plural(h.n, 'card')} · ${trumpText(h.trump)}${h.trumpCard ? ` (turned up ${h.trump ? C.cardName(h.trumpCard) : 'a joker'})` : ''} · ${dealer}</p>` +
         `<div class="replay"><div class="last-trick rp-trick"></div><p class="rp-cap"></p><div class="rp-hands"></div></div>` +
         `<div class="foot rp-nav"><button type="button" class="btn" data-act="prev" aria-label="Previous">◀</button>` +
         `<span class="rp-step" aria-live="polite"></span>` +
@@ -1016,7 +1094,7 @@
       const cardsBox = $('.rp-cards', row);
       const n = hands[p].length;
       cardsBox.style.gridTemplateColumns = n > 1 ? `repeat(${n - 1}, minmax(0, var(--mw))) var(--mw)` : 'var(--mw)';
-      for (const c of hands[p]) cardsBox.append((els[c.id] = cardEl(c, { trump: c.s === h.trump })));
+      for (const c of hands[p]) cardsBox.append((els[c.id] = cardEl(c, { trump: R.isTrump(c, h.trump) })));
       tallies[p] = $('.rp-tally', row);
       box.append(row);
     }
@@ -1052,14 +1130,15 @@
           who.textContent = nameOf(p);
           const spot = document.createElement('div');
           spot.className = 'spot';
-          spot.append(cardEl(card, { trump: card.s === h.trump }));
+          spot.append(cardEl(card, { trump: R.isTrump(card, h.trump) }));
           slot.append(spot, who);
           strip.append(slot);
         }
-        const ruff = win.card.s === h.trump && led.card.s !== h.trump ? ', a trump' : '';
+        const ruff = C.isJoker(win.card) || !R.isTrump(win.card, h.trump) || R.isTrump(led.card, h.trump) ? '' : ', a trump';
+        const named = (c) => (C.isJoker(c) ? 'a joker' : C.cardName(c));
         $('.rp-cap', sheet).textContent =
-          `${nameOf(led.p)} led ${C.cardName(led.card)}` +
-          (win === led ? ' and nobody beat it.' : `. ${nameOf(win.p)} took it with ${C.cardName(win.card)}${ruff}.`);
+          `${nameOf(led.p)} led ${named(led.card)}` +
+          (win === led ? ' and nobody beat it.' : `. ${nameOf(win.p)} took it with ${named(win.card)}${ruff}.`);
       } else {
         $('.rp-cap', sheet).textContent = 'Everyone’s cards as dealt. A gold ring marks each card that took a trick.';
       }
@@ -1136,7 +1215,7 @@
 <li>No card of the led suit? Then you must play a <b>trump</b>. If the trick already holds a trump, you must play a higher one if you have it; if all yours are lower, you still play a trump.</li>
 <li>No led suit and no trumps: play anything. A good chance to throw away a dangerous card.</li>
 </ul>
-<p>Cards rank 2 (low) up to A (high). A trump beats every other suit. With two decks there are identical cards: the one played first wins.</p>
+<p>Cards rank 2 (low) up to A (high). A trump beats every other suit. With two decks there are identical cards: the one played first wins (unless you play with <b>same card beats</b>, below).</p>
 <h3>Classic scoring</h3>
 <ul>
 <li>Exactly right: <b>10 points + 2 per trick</b>. A correct guess of zero is worth 10.</li>
@@ -1149,6 +1228,12 @@
 <li><b>First to 500 / 1000</b>: the round order repeats until someone reaches the target. The match ends after that round, and the highest score wins. This pairs well with 20 per trick.</li>
 </ul>
 <p class="ex">20 per trick. Guess 2, take 5: <b>+34</b> · Guess 5, take 2: <em>−6</em> · Guess 3, take 3: <b>+60</b> · Guess 0, take 2: <b>+6</b></p>
+<h3>House rules</h3>
+<ul>
+<li><b>Jokers</b> (1 to 4 per deck) have no suit and are all the same. They are the <b>highest trumps</b>, above the ace of trumps. You play one when you would have to trump: you can't throw one while you can follow suit, and if the trick holds a trump you can only beat with a joker, you must play it. A joker led asks for trumps.</li>
+<li><b>Same card beats</b>: a card identical to the winning one takes the trick, so a later A${T.H} beats an earlier A${T.H} and a later joker beats an earlier one. With several decks, smaller cards get a chance too. Like any card that beats, you must play it when you have to beat.</li>
+<li><b>Trump: sometimes</b>. A turned-up joker means no trump that round. Without jokers, one round in five has no trump, at random. <b>Never</b> plays every round without trump. Without a trump suit the highest card of the led suit wins, and only jokers can take a trick off-suit.</li>
+</ul>
 <h3>Reading the table</h3>
 <ul>
 <li>Every player shows their guess and the tricks taken so far. The numbers turn green while exact and red once over. With 20 per trick they stay green once the guess is reached, since extra tricks only cost 2 each.</li>
