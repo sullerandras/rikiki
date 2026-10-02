@@ -5,6 +5,7 @@ It has no dependencies and needs no build step to play: open `index.html`.
 
 ## Play
 
+- **Online:** [play Rikiki on Claude](https://claude.ai/artifact/Jp9W4Sp1p2VxAYQmddQ8WJ). No install, works on phones too.
 - **Desktop:** open `index.html` in a browser.
 - **Phone, single file:** run `npm run build` and send `dist/rikiki.html` to the phone. It is one self-contained file.
 - **Phone, same Wi-Fi:** run `npm run serve` and open the printed `http://<ip>:8080` address.
