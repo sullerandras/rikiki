@@ -1,15 +1,23 @@
 #!/usr/bin/env node
 // Tiny static server so phones on the same Wi-Fi can open the game:
-//   node tools/serve.mjs [port]   then visit http://<this-computer's-ip>:<port>
+//   node tools/serve.mjs [port] [dir]   then visit http://<this-computer's-ip>:<port>
+//   node tools/serve.mjs 8080 dist/site serves the built web app (its service worker runs on localhost only)
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, dirname } from 'node:path';
 import { networkInterfaces } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', process.argv[3] || '');
 const port = Number(process.argv[2] || 8080);
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
+const types = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.webmanifest': 'application/manifest+json',
+};
 
 createServer(async (req, res) => {
   const path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^(\.\.[/\\])+/, '');

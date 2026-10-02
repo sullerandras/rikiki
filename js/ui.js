@@ -287,6 +287,7 @@
         `${roundLabel(saved)} · ${saved.players.length} players · ` +
         (lead.i === HUMAN ? `you lead with ${me.score}` : `you have ${me.score}, ${lead.name} leads with ${lead.score}`);
     }
+    reloadIfIdle();
   }
 
   function loadSaved() {
@@ -864,6 +865,7 @@
     $('#modal').hidden = true;
     const back = modalCtx && modalCtx.back;
     modalCtx = null;
+    reloadIfIdle();
     if (force || !state) return;
     if (back) back();
     else if (state.phase === 'roundEnd' && !$('#game').hidden) showRoundSummary();
@@ -1294,6 +1296,34 @@
     toastTimer = setTimeout(() => (el.className = 'toast'), kind === 'warn' ? 3200 : 2400);
   }
 
+  // ------------------------------------------------------------ offline + updates
+
+  /* Only the hosted site links a manifest and ships sw.js (see tools/build.mjs). When a deploy's new worker
+   * takes over, the page reloads on the start screen, never in the middle of a match. */
+  let updateReady = false;
+  function registerWorker() {
+    if (!('serviceWorker' in navigator) || !$('link[rel="manifest"]')) return;
+    let controlled = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      // The first worker to take over serves the same version this page already runs.
+      if (controlled) {
+        updateReady = true;
+        reloadIfIdle();
+      }
+      controlled = true;
+    });
+    navigator.serviceWorker.register('sw.js').then(
+      // An installed app can stay open for days, so look for a new version whenever it comes back.
+      (reg) => document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && reg.update()),
+      () => {},
+    );
+  }
+
+  function reloadIfIdle() {
+    const typing = document.activeElement && document.activeElement.tagName === 'INPUT';
+    if (updateReady && !$('#start').hidden && $('#modal').hidden && !typing) location.reload();
+  }
+
   // ------------------------------------------------------------ wiring
 
   function wire() {
@@ -1340,4 +1370,5 @@
   initSetup();
   wire();
   showStart();
+  registerWorker();
 })();

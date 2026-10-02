@@ -6,9 +6,26 @@ It has no dependencies and needs no build step to play: open `index.html`.
 ## Play
 
 - **Online:** [play Rikiki on Claude](https://claude.ai/artifact/Jp9W4Sp1p2VxAYQmddQ8WJ). No install, works on phones too.
+- **Install as an app:** open [sullerandras.github.io/rikiki](https://sullerandras.github.io/rikiki/) and choose
+  "Install app" or "Add to Home Screen". It works offline and updates itself.
 - **Desktop:** open `index.html` in a browser.
 - **Phone, single file:** run `npm run build` and send `dist/rikiki.html` to the phone. It is one self-contained file.
 - **Phone, same Wi-Fi:** run `npm run serve` and open the printed `http://<ip>:8080` address.
+
+## Web app (GitHub Pages)
+
+`npm run build` also writes `dist/site/`: the separate files plus `manifest.webmanifest`, the PNG icons and `sw.js`.
+The service worker caches the game and the latin Google Fonts so it starts offline. The build stamps a hash of
+the content into `sw.js`, so each deploy that changes anything installs a new worker. That worker takes over at once,
+and the page reloads the next time it is on the start screen, never mid-match. An open app also checks for
+a new version whenever it comes back to the foreground.
+
+Only the site build links the manifest, so `index.html`, `dist/rikiki.html` and the Claude artifact run without a
+service worker. To try the site locally: `npm run build && node tools/serve.mjs 8080 dist/site`, then open
+`http://localhost:8080` (service workers need HTTPS or localhost).
+
+`.github/workflows/pages.yml` tests, builds and deploys on every push to `master`. One-time setup: in the repo's
+Settings → Pages, set Source to "GitHub Actions".
 
 The match is saved in the browser after every card, so you can close the tab and continue later.
 
@@ -56,6 +73,8 @@ old easy / normal / hard levels load as 2 / 4 / 5. The hint button asks level 5.
 
 ```
 index.html        page shell
+sw.js             service worker for the hosted site (offline + updates)
+manifest.webmanifest, icons/   install metadata and PNG icons
 css/style.css     all styling
 js/cards.js       deck, shuffling, sorting
 js/rules.js       trick winner, legal cards, scoring, round schedule
@@ -63,7 +82,7 @@ js/game.js        match state machine (plain JSON, saved to localStorage)
 js/ai.js          heuristic + Monte Carlo bots
 js/ui.js          rendering, animation, game loop
 test/             node --test suites (rules, engine, inference)
-tools/build.mjs   bundles everything into dist/rikiki.html
+tools/build.mjs   bundles everything into dist/rikiki.html, and builds dist/site/ for GitHub Pages
 tools/serve.mjs   tiny static server for LAN play
 tools/simulate.cjs bot tournament, e.g. `npm run simulate -- 40 1,3,4,5 8 twenty jokers=2,same,trump=sometimes`
 ```

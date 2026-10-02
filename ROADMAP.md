@@ -88,8 +88,9 @@ Not decided. These don't exclude each other. The same web build can go everywher
 
 - **Own website** (e.g. GitHub Pages): free, under our control. A page with the rules and a Play button could
   rank for "rikiki online" and the Hungarian equivalents, since there is little competition.
-- **Installable web app (PWA):** add a manifest and a service worker. Then it installs to the home screen, works offline and
-  needs no store. This is the cheapest version of "a mobile app".
+- **Done: installable web app (PWA).** `npm run build` writes `dist/site/` with a manifest and a service worker, and
+  a GitHub Actions workflow publishes it to GitHub Pages. It installs to the home screen, works offline,
+  needs no store, and updates itself on the start screen after each deploy.
 - **Play Store:** wrap the web build (e.g. Capacitor or a Trusted Web Activity). Google charges a one-time developer
   fee. Searching "rikiki" there finds only a score-keeping app. iOS costs a yearly fee, so later if ever.
 - **CrazyGames:** possible, but their audience mostly won't know the game. How it works: a quality check, then a
