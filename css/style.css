@@ -215,6 +215,7 @@ input[type='range'] { width: 100%; accent-color: var(--brass); min-height: 32px;
 .summary { margin: 0; color: var(--text-dim); font-size: 13px; text-align: center; font-variant-numeric: tabular-nums; }
 .summary b { color: var(--text); }
 .actions { display: flex; flex-direction: column; gap: 8px; }
+.version { margin: 18px 0 0; color: var(--text-faint); font-size: 12px; text-align: center; font-variant-numeric: tabular-nums; }
 
 /* ------------------------------------------------------------ game layout */
 

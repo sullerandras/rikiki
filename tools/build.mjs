@@ -5,6 +5,7 @@
 //   node tools/build.mjs --fragment out  -> same single file without <html>/<head>/<body> wrappers
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { execSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,7 +13,16 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
 const args = process.argv.slice(2);
 const fragIdx = args.indexOf('--fragment');
-const source = read('index.html');
+// Shown on the start screen: commit date and short hash, with + when built from uncommitted changes.
+const git = (cmd) => {
+  try {
+    return execSync(`git ${cmd}`, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    return '';
+  }
+};
+const version = git('log -1 --format=%cd-%h --date=format:%Y-%m-%d') + (git('status --porcelain') ? '+' : '') || 'dev';
+const source = read('index.html').replace('<p class="version">dev</p>', `<p class="version">${version}</p>`);
 
 let html = source
   .replace(/<link rel="stylesheet" href="(css\/[^"]+)">/g, (_, p) => `<style>\n${read(p)}</style>`)

@@ -19,6 +19,8 @@ The service worker caches the game and the latin Google Fonts so it starts offli
 the content into `sw.js`, so each deploy that changes anything installs a new worker. That worker takes over at once,
 and the page reloads the next time it is on the start screen, never mid-match. An open app also checks for
 a new version whenever it comes back to the foreground.
+The start screen shows the version under the setup form: the commit date and short hash, for example
+`2026-10-02-1863324`. A trailing `+` means it was built from uncommitted changes; `dev` means unbuilt `index.html`.
 
 Only the site build links the manifest, so `index.html`, `dist/rikiki.html` and the Claude artifact run without a
 service worker. To try the site locally: `npm run build && node tools/serve.mjs 8080 dist/site`, then open
